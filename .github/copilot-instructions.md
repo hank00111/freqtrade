@@ -96,3 +96,50 @@ To verify the virtual environment is active:
 # Or check the Python path
 python -c "import sys; print(sys.prefix)"
 ```
+
+## 10. Documentation Organization Standards
+
+- All Markdown documentation files must be placed in the `docs/` directory
+- Documentation must be organized by date using the `YYYYMMDD` format (e.g., `20251018`)
+- Each date-specific folder should contain related documentation created on that day
+
+### Directory Structure
+
+```plaintext
+docs/
+├── 20251017/
+│   ├── feature_implementation.md
+│   └── bug_fixes.md
+├── 20251018/
+│   ├── RL_SETUP_COMPLETE.md
+│   └── GPU_SETUP_COMPLETE.md
+└── 20251019/
+    └── deployment_guide.md
+```
+
+### File Placement Rules
+
+- ✅ **DO**: Place all `.md` files in `docs/YYYYMMDD/`
+- ✅ **DO**: Create a new date folder when working on a different day
+- ❌ **DON'T**: Place `.md` files in the project root directory
+- ❌ **DON'T**: Mix files from different dates in the same folder
+
+### Moving Existing Files
+
+When creating new documentation or moving existing `.md` files:
+
+```bash
+# Create date directory if it doesn't exist
+New-Item -ItemType Directory -Path "docs\YYYYMMDD" -Force
+
+# Move Markdown files to the appropriate date folder
+Move-Item -Path "filename.md" -Destination "docs\YYYYMMDD\filename.md" -Force
+```
+
+### Exceptions
+
+The following files should remain in their standard locations:
+- `README.md` (project root)
+- `CONTRIBUTING.md` (project root)
+- `LICENSE.md` (project root)
+- Configuration-related `.md` files in their respective config directories
