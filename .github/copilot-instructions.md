@@ -51,3 +51,48 @@ c. Does not contain any names, numbers, events, or assumptions not explicitly me
 
 - Do not include any icons or emoji in code
 - Keep code clean and professional without decorative characters
+
+## 9. Virtual Environment Standards
+
+- All development work must be done within a Python virtual environment
+- The standard virtual environment directory is `.venv` located in the project root
+- Do not commit the `.venv` directory to version control
+
+### Creating the Virtual Environment
+
+```bash
+# Linux/MacOS
+python3 -m venv .venv
+
+# Windows
+python -m venv .venv
+```
+
+### Activating the Virtual Environment
+
+```bash
+# Linux/MacOS
+source .venv/bin/activate
+
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# Windows Command Prompt
+.venv\Scripts\activate.bat
+```
+
+### Installation Commands
+
+- All `pip install` commands must be executed within the activated virtual environment
+- Use `python -m pip` instead of `pip` directly for consistency
+- Automated setup scripts (`setup.sh` for Linux/MacOS, `setup.ps1` for Windows) handle virtual environment creation and activation automatically
+
+### Verification
+
+To verify the virtual environment is active:
+
+```bash
+# The prompt should show (.venv) prefix
+# Or check the Python path
+python -c "import sys; print(sys.prefix)"
+```
