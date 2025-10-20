@@ -97,6 +97,30 @@ To verify the virtual environment is active:
 python -c "import sys; print(sys.prefix)"
 ```
 
+### Training Requirements
+
+- **All training operations must be executed within the activated virtual environment**
+- This includes but is not limited to:
+  - FreqAI model training (`freqtrade backtesting --freqai`)
+  - Reinforcement Learning training
+  - Hyperopt optimization
+  - Any backtesting operations that involve model training
+- Always verify the virtual environment is active before starting any training process
+- Training commands should never be run in the system Python environment
+
+Example training workflow:
+
+```bash
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# Verify environment is active
+python -c "import sys; print(sys.prefix)"
+
+# Now safe to run training
+freqtrade backtesting --freqai --config user_data/config.json --strategy YourStrategy
+```
+
 ## 10. Documentation Organization Standards
 
 - All Markdown documentation files must be placed in the `docs/` directory
