@@ -18,7 +18,6 @@ user_data/freqaimodels/*
 user_data/models/*
 !user_data/models/*/
 user_data/models/*/*
-!user_data/models/*/run_params.json
 user_data/notebooks/*
 freqtrade-plot.html
 freqtrade-profit-plot.html
