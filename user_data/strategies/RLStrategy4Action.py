@@ -61,27 +61,51 @@ class RLStrategy4Action(IStrategy):
         dataframe["%-sma-period"] = ta.SMA(dataframe, timeperiod=period)
         dataframe["%-ema-period"] = ta.EMA(dataframe, timeperiod=period)
 
-        bollinger = qtpylib.bollinger_bands(
-            qtpylib.typical_price(dataframe), window=period, stds=2.2
-        )
-        dataframe["bb_lowerband-period"] = bollinger["lower"]
-        dataframe["bb_middleband-period"] = bollinger["mid"]
-        dataframe["bb_upperband-period"] = bollinger["upper"]
-
-        dataframe["%-bb_width-period"] = (
-            dataframe["bb_upperband-period"] - dataframe["bb_lowerband-period"]
-        ) / dataframe["bb_middleband-period"]
-        
-        dataframe["%-close-bb_lower-period"] = (
-            dataframe["close"] / dataframe["bb_lowerband-period"]
-        )
-
         dataframe["%-roc-period"] = ta.ROC(dataframe, timeperiod=period)
         
         dataframe["%-relative_volume-period"] = (
             dataframe["volume"] / dataframe["volume"].rolling(period).mean()
         )
 
+        return dataframe
+
+    def feature_engineering_expand_basic(
+        self, dataframe: DataFrame, metadata: dict, **kwargs
+    ) -> DataFrame:
+        """
+        Define features that will be expanded but NOT across indicator_periods_candles.
+        TradingView BB(21, 2.0, Close) settings.
+        
+        :param dataframe: strategy dataframe which will receive the features
+        :param metadata: metadata of current pair
+        """
+        # TradingView Bollinger Bands: Length=21, StdDev=2, Source=Close
+        bollinger_21 = qtpylib.bollinger_bands(
+            dataframe["close"],  # Source: Close (not typical_price)
+            window=21,           # Length: 21
+            stds=2.0            # StdDev: 2
+        )
+        
+        dataframe["%-bb21_lower"] = bollinger_21["lower"]
+        dataframe["%-bb21_mid"] = bollinger_21["mid"]
+        dataframe["%-bb21_upper"] = bollinger_21["upper"]
+        
+        # Bollinger Bands Width (normalized)
+        dataframe["%-bb21_width"] = (
+            (bollinger_21["upper"] - bollinger_21["lower"]) / bollinger_21["mid"]
+        )
+        
+        # Price position in BB (0 = lower band, 1 = upper band)
+        dataframe["%-bb21_percent"] = (
+            (dataframe["close"] - bollinger_21["lower"]) / 
+            (bollinger_21["upper"] - bollinger_21["lower"])
+        )
+        
+        # Distance from middle band (normalized)
+        dataframe["%-bb21_delta"] = (
+            (dataframe["close"] - bollinger_21["mid"]) / bollinger_21["mid"]
+        )
+        
         return dataframe
 
     def feature_engineering_standard(self, dataframe: DataFrame, metadata: dict, **kwargs) -> DataFrame:

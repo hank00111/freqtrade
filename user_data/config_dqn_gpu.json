@@ -61,10 +61,10 @@
             "include_corr_pairlist": [],
             "label_period_candles": 20,
             "include_shifted_candles": 5,
-            "DI_threshold": 0,
-            "weight_factor": 0,
+            "DI_threshold": 0.9,
+            "weight_factor": 0.9,
             "principal_component_analysis": false,
-            "use_SVM_to_remove_outliers": false,
+            "use_SVM_to_remove_outliers": true,
             "indicator_periods_candles": [
                 10,
                 20
