@@ -58,17 +58,15 @@
         "feature_parameters": {
             "include_timeframes": [
                 "15m",
-                "1h",
-                "4h"
+                "1h"
             ],
             "include_corr_pairlist": [],
             "label_period_candles": 30,
-            "include_shifted_candles": 5,
+            "include_shifted_candles": 2,
             "weight_factor": 0.9,
             "principal_component_analysis": false,
             "indicator_periods_candles": [
-                10,
-                20
+                10
             ],
             "shuffle_after_split": false
         },
