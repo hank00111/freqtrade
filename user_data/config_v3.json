@@ -1,5 +1,4 @@
 {
-    "_comment": "Optimized configuration for AWS EC2 c6g.8xlarge (32 vCPU, 64GB RAM, ARM64)",
     "trading_mode": "futures",
     "margin_mode": "isolated",
     "max_open_trades": 2,
@@ -78,7 +77,6 @@
             "shuffle": false
         },
         "model_training_parameters": {
-            "_comment": "Optimized for 64GB RAM and 32 vCPU",
             "learning_rate": 0.00003,
             "batch_size": 2048,
             "n_steps": 8192,
@@ -110,7 +108,6 @@
             "_exploration_final_eps": 0.1
         },
         "rl_config": {
-            "_comment": "Optimized for c6g.8xlarge (32 vCPU)",
             "train_cycles": 100,
             "add_state_info": false,
             "max_trade_duration_candles": 50,

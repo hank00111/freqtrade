@@ -385,9 +385,9 @@ source .venv/bin/activate
 # Download data for your trading pairs (example: BTC/USDT, ETH/USDT)
 freqtrade download-data \
     --config user_data/config_v3.json \
-    --timerange 20230101-20251019 \
+    --timerange 20221101-20251019 \
     --timeframes 15m 1h 4h
-
+freqtrade download-data --exchange binance --pairs BTC/USDT:USDT ETH/USDT:USDT --timeframe 5m 15m 1h 4h --timerange 20221101-20251019 --trading-mode futures --prepend
 # Verify downloaded data
 ls -lh user_data/data/binance/
 ```
