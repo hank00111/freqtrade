@@ -109,6 +109,28 @@ class RLStrategy4Action(IStrategy):
         # Relative Strength Index (14-period standard)
         dataframe["%-rsi14"] = ta.RSI(dataframe, timeperiod=14)
         
+        # MACD (Moving Average Convergence Divergence)
+        # Settings: Fast=12, Slow=26, Signal=9 (TradingView standard)
+        macd = ta.MACD(
+            dataframe,
+            fastperiod=12,
+            slowperiod=26,
+            signalperiod=9
+        )
+        
+        dataframe["%-macd"] = macd["macd"]
+        dataframe["%-macd_signal"] = macd["macdsignal"]
+        dataframe["%-macd_hist"] = macd["macdhist"]
+        
+        # MACD normalized by price (scale-invariant)
+        dataframe["%-macd_norm"] = dataframe["%-macd"] / dataframe["close"]
+        dataframe["%-macd_hist_norm"] = dataframe["%-macd_hist"] / dataframe["close"]
+        
+        # MACD cross indicator (1 if MACD > signal, 0 otherwise)
+        dataframe["%-macd_cross"] = (
+            dataframe["%-macd"] > dataframe["%-macd_signal"]
+        ).astype(int)
+        
         return dataframe
 
     def feature_engineering_standard(self, dataframe: DataFrame, metadata: dict, **kwargs) -> DataFrame:
