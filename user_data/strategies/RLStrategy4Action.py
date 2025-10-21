@@ -55,13 +55,8 @@ class RLStrategy4Action(IStrategy):
         :param period: period of the indicator
         :param metadata: metadata of current pair
         """
-        dataframe["%-rsi-period"] = ta.RSI(dataframe, timeperiod=period)
         dataframe["%-mfi-period"] = ta.MFI(dataframe, timeperiod=period)
         dataframe["%-adx-period"] = ta.ADX(dataframe, timeperiod=period)
-        dataframe["%-sma-period"] = ta.SMA(dataframe, timeperiod=period)
-        dataframe["%-ema-period"] = ta.EMA(dataframe, timeperiod=period)
-
-        dataframe["%-roc-period"] = ta.ROC(dataframe, timeperiod=period)
         
         dataframe["%-relative_volume-period"] = (
             dataframe["volume"] / dataframe["volume"].rolling(period).mean()
@@ -74,7 +69,7 @@ class RLStrategy4Action(IStrategy):
     ) -> DataFrame:
         """
         Define features that will be expanded but NOT across indicator_periods_candles.
-        TradingView BB(21, 2.0, Close) settings.
+        Includes TradingView BB(21, 2.0, Close) settings and fixed-period EMAs.
         
         :param dataframe: strategy dataframe which will receive the features
         :param metadata: metadata of current pair
@@ -105,6 +100,14 @@ class RLStrategy4Action(IStrategy):
         dataframe["%-bb21_delta"] = (
             (dataframe["close"] - bollinger_21["mid"]) / bollinger_21["mid"]
         )
+        
+        # Exponential Moving Averages (20, 50, 200 periods)
+        dataframe["%-ema20"] = ta.EMA(dataframe, timeperiod=20)
+        dataframe["%-ema50"] = ta.EMA(dataframe, timeperiod=50)
+        dataframe["%-ema200"] = ta.EMA(dataframe, timeperiod=200)
+        
+        # Relative Strength Index (14-period standard)
+        dataframe["%-rsi14"] = ta.RSI(dataframe, timeperiod=14)
         
         return dataframe
 
