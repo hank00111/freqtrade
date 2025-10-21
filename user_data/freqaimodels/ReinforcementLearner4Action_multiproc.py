@@ -46,15 +46,17 @@ class ReinforcementLearner4Action_multiproc(ReinforcementLearner_multiproc):
             # Get current profit ratio
             pnl = self.get_unrealized_profit()
             
-            # Reward parameters from config
-            profit_aim = self.reward_params.get("profit_aim", 0.02)
-            base_factor = self.reward_params.get("base_factor", 50000)
-            time_reward_max = self.reward_params.get("time_reward_max", 1.0)
-            progressive_bonus_rate = self.reward_params.get("progressive_bonus_rate", 5.0)
-            asymmetric_loss_penalty = self.reward_params.get("asymmetric_loss_penalty", 3.0)
-            base_profit_bonus = self.reward_params.get("base_profit_bonus", 100)
+            # Reward parameters from rl_config (multiprocessing-safe)
+            reward_params = self.rl_config.get("model_reward_parameters", {})
             
-            tier_multipliers = self.reward_params.get("tier_multipliers", {
+            profit_aim = reward_params.get("profit_aim", 0.02)
+            base_factor = reward_params.get("base_factor", 50000)
+            time_reward_max = reward_params.get("time_reward_max", 1.0)
+            progressive_bonus_rate = reward_params.get("progressive_bonus_rate", 5.0)
+            asymmetric_loss_penalty = reward_params.get("asymmetric_loss_penalty", 3.0)
+            base_profit_bonus = reward_params.get("base_profit_bonus", 100)
+            
+            tier_multipliers = reward_params.get("tier_multipliers", {
                 "small_win": 25,
                 "medium_win": 50,
                 "big_win": 100,
