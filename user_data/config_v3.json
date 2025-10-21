@@ -50,7 +50,7 @@
         "purge_old_models": 3,
         "train_period_days": 60,
         "backtest_period_days": 10,
-        "identifier": "PPO_15m_v3",
+        "identifier": "PPO_15m_v3_multiproc",
         "continual_learning": false,
         "write_metrics_to_disk": true,
         "live_retrain_hours": 12,
@@ -78,7 +78,7 @@
         },
         "model_training_parameters": {
             "learning_rate": 0.00003,
-            "batch_size": 2048,
+            "batch_size": 4096,
             "n_steps": 8192,
             "n_epochs": 20,
             "gamma": 0.99,
@@ -108,11 +108,11 @@
             "_exploration_final_eps": 0.1
         },
         "rl_config": {
-            "train_cycles": 100,
+            "train_cycles": 80,
             "add_state_info": false,
             "max_trade_duration_candles": 50,
             "max_training_drawdown_pct": 0.05,
-            "cpu_count": 24,
+            "cpu_count": 28,
             "model_type": "PPO",
             "policy_type": "MlpPolicy",
             "net_arch": [
