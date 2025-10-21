@@ -52,8 +52,8 @@ class ReinforcementLearner4Action(ReinforcementLearner):
                 return -2
 
             pnl = self.get_unrealized_profit()
-            rew = np.sign(pnl) * (pnl + 1)
-            factor = 100.0
+            rew = pnl
+            factor = 10000.0  # Increased base factor to compensate for removing +1 offset
 
             # Reward agent for entering trades
             if (
@@ -69,12 +69,6 @@ class ReinforcementLearner4Action(ReinforcementLearner):
             max_trade_duration = self.rl_config.get("max_trade_duration_candles", 300)
             trade_duration = self._current_tick - self._last_trade_tick  # type: ignore
 
-            # Adjust factor based on trade duration
-            if trade_duration <= max_trade_duration:
-                factor *= 1.5
-            elif trade_duration > max_trade_duration:
-                factor *= 0.5
-
             # Discourage sitting in position without action
             if (
                 self._position in (Positions.Short, Positions.Long)
@@ -83,12 +77,56 @@ class ReinforcementLearner4Action(ReinforcementLearner):
                 return -1 * trade_duration / max_trade_duration
 
             # Unified Exit action for both Long and Short positions
-            if action == Actions.Exit.value and self._position == Positions.Long:
-                # Log PNL for Long exits
-                self.tensorboard_log("long_exit_pnl", value=pnl, category="pnl")
+            if action == Actions.Exit.value and self._position in (Positions.Long, Positions.Short):
+                profit_aim = self.profit_aim * self.rr
+                
+                # === IMPROVEMENT 1: Continuous Time-based Reward ===
+                if pnl > 0:
+                    normalized_duration = min(trade_duration / max_trade_duration, 1.0)
+                    time_multiplier = 3.0 - (2.0 * normalized_duration)  # 3.0x for quick, 1.0x for slow
+                    factor *= time_multiplier
+                    self.tensorboard_log("time_multiplier", value=time_multiplier, category="rewards")
+                else:
+                    # Penalize long-duration losses more heavily
+                    if trade_duration > max_trade_duration:
+                        factor *= 0.5
+                
+                # === IMPROVEMENT 2: Multi-tier Profit Ladders ===
+                if pnl > profit_aim * 10:  # 20%+ mega win
+                    factor *= 200
+                    self.tensorboard_log("mega_win", category="tier")
+                elif pnl > profit_aim * 5:  # 10%+ huge win
+                    factor *= 100
+                    self.tensorboard_log("huge_win", category="tier")
+                elif pnl > profit_aim * 3:  # 6%+ big win
+                    factor *= 50
+                    self.tensorboard_log("big_win", category="tier")
+                elif pnl > profit_aim * 1.5:  # 3%+ medium win
+                    factor *= 25
+                    self.tensorboard_log("medium_win", category="tier")
+                elif pnl > profit_aim:  # 2%+ small win
+                    factor *= 10
+                    self.tensorboard_log("small_win", category="tier")
+                
+                # === IMPROVEMENT 3: Progressive Bonus (continuous scaling) ===
+                if pnl > profit_aim:
+                    excess_profit = pnl - profit_aim
+                    progressive_bonus = 1 + (excess_profit / 0.01) * 2  # +2x per 1% excess
+                    factor *= progressive_bonus
+                    self.tensorboard_log("progressive_bonus", value=progressive_bonus, category="rewards")
+                
+                # === IMPROVEMENT 4: Asymmetric Loss Penalty ===
+                if pnl > 0:
+                    base_profit_bonus = 50  # Base reward for any profit
+                    final_reward = rew * factor + base_profit_bonus
+                else:
+                    final_reward = rew * factor * 2  # Double penalty for losses
+                
+                # === Logging ===
+                position_type = "long" if self._position == Positions.Long else "short"
+                self.tensorboard_log(f"{position_type}_exit_pnl", value=pnl, category="pnl")
                 self.tensorboard_log("exit_pnl", value=pnl, category="pnl")
                 
-                # Track profitable vs loss exits
                 if pnl > 0:
                     self.tensorboard_log("profitable_exit", category="pnl")
                     self.tensorboard_log("profitable_pnl_sum", value=pnl, category="pnl")
@@ -96,29 +134,9 @@ class ReinforcementLearner4Action(ReinforcementLearner):
                     self.tensorboard_log("loss_exit", category="pnl")
                     self.tensorboard_log("loss_pnl_sum", value=pnl, category="pnl")
                 
-                if pnl > self.profit_aim * self.rr:
-                    factor *= self.rl_config["model_reward_parameters"].get("win_reward_factor", 2)
-                    self.tensorboard_log("big_win_exit", category="pnl")
+                self.tensorboard_log("final_reward", value=final_reward, category="rewards")
+                self.tensorboard_log("factor_used", value=factor, category="rewards")
                 
-                return float(rew * factor)
-
-            if action == Actions.Exit.value and self._position == Positions.Short:
-                # Log PNL for Short exits
-                self.tensorboard_log("short_exit_pnl", value=pnl, category="pnl")
-                self.tensorboard_log("exit_pnl", value=pnl, category="pnl")
-                
-                # Track profitable vs loss exits
-                if pnl > 0:
-                    self.tensorboard_log("profitable_exit", category="pnl")
-                    self.tensorboard_log("profitable_pnl_sum", value=pnl, category="pnl")
-                else:
-                    self.tensorboard_log("loss_exit", category="pnl")
-                    self.tensorboard_log("loss_pnl_sum", value=pnl, category="pnl")
-                
-                if pnl > self.profit_aim * self.rr:
-                    factor *= self.rl_config["model_reward_parameters"].get("win_reward_factor", 2)
-                    self.tensorboard_log("big_win_exit", category="pnl")
-                
-                return float(rew * factor)
+                return float(final_reward)
 
             return 0.0

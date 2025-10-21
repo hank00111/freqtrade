@@ -54,6 +54,7 @@
         "continual_learning": false,
         "write_metrics_to_disk": true,
         "live_retrain_hours": 12,
+        "data_kitchen_thread_count": 10,
         "feature_parameters": {
             "include_timeframes": [
                 "15m",
