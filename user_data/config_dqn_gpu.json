@@ -8,7 +8,7 @@
     "fiat_display_currency": "USD",
     "dry_run": true,
     "cancel_open_orders_on_exit": true,
-    "timeframe": "5m",
+    "timeframe": "15m",
     "unfilledtimeout": {
         "entry": 10,
         "exit": 30
@@ -50,18 +50,20 @@
         "purge_old_models": 3,
         "train_period_days": 45,
         "backtest_period_days": 7,
-        "identifier": "DQN_GPU_RTX2070",
+        "identifier": "PPO_5m_GPU_RTX2070",
         "continual_learning": false,
         "write_metrics_to_disk": true,
         "live_retrain_hours": 12,
         "feature_parameters": {
             "include_timeframes": [
-                "5m"
+                "15m",
+                "1h",
+                "4h"
             ],
             "include_corr_pairlist": [],
-            "label_period_candles": 20,
+            "label_period_candles": 250,
             "include_shifted_candles": 5,
-            "DI_threshold": 0.9,
+            "DI_threshold": 20,
             "weight_factor": 0.9,
             "principal_component_analysis": false,
             "use_SVM_to_remove_outliers": true,
@@ -76,25 +78,35 @@
             "shuffle": false
         },
         "model_training_parameters": {
-            "learning_rate": 0.00025,
-            "batch_size": 512,
-            "buffer_size": 1000000,
-            "learning_starts": 10000,
-            "target_update_interval": 500,
-            "train_freq": 4,
-            "gradient_steps": 4,
-            "exploration_fraction": 0.3,
-            "exploration_initial_eps": 1.0,
-            "exploration_final_eps": 0.05,
-            "device": "cuda"
+            "learning_rate": 0.0001,
+            "batch_size": 256,
+            "n_steps": 2048,
+            "n_epochs": 10,
+            "gae_lambda": 0.95,
+            "clip_range": 0.2,
+            "ent_coef": 0.01,
+            "vf_coef": 0.5,
+            "max_grad_norm": 0.5,
+            "device": "cpu"
+        },
+        "_comment_DQN_params": {
+            "_NOTE": "DQN-specific parameters (commented out for PPO)",
+            "_buffer_size": 1000000,
+            "_learning_starts": 10000,
+            "_target_update_interval": 500,
+            "_train_freq": 4,
+            "_gradient_steps": 4,
+            "_exploration_fraction": 0.5,
+            "_exploration_initial_eps": 1.0,
+            "_exploration_final_eps": 0.1
         },
         "rl_config": {
-            "train_cycles": 50,
+            "train_cycles": 100,
             "add_state_info": false,
-            "max_trade_duration_candles": 300,
+            "max_trade_duration_candles": 250,
             "max_training_drawdown_pct": 0.02,
             "cpu_count": 1,
-            "model_type": "DQN",
+            "model_type": "PPO",
             "policy_type": "MlpPolicy",
             "net_arch": [
                 512,
@@ -103,8 +115,8 @@
             ],
             "model_reward_parameters": {
                 "rr": 1,
-                "profit_aim": 0.025,
-                "win_reward_factor": 2.0
+                "profit_aim": 0.020,
+                "win_reward_factor": 5.0
             }
         }
     },
