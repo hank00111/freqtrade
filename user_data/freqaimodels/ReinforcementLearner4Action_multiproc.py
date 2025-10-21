@@ -15,11 +15,42 @@ logger = logging.getLogger(__name__)
 
 
 class ReinforcementLearner4Action_multiproc(ReinforcementLearner_multiproc):
+    
+    def __init__(self, **kwargs) -> None:
+        """
+        Override __init__ to remove the max_threads limitation.
+        
+        The base class limits max_threads to min(cpu_count, max_system_threads/2).
+        For dedicated training servers, we want to use the full configured cpu_count.
+        """
+        # Call parent __init__ first
+        super().__init__(**kwargs)
+        
+        # Override max_threads to use configured cpu_count directly
+        configured_cpu_count = self.freqai_info["rl_config"].get("cpu_count", 1)
+        
+        # Only override if configured value is higher than current max_threads
+        if configured_cpu_count > self.max_threads:
+            logger.info(
+                f"Overriding max_threads from {self.max_threads} to {configured_cpu_count} "
+                f"for better parallelization on dedicated training server"
+            )
+            self.max_threads = configured_cpu_count
+            th.set_num_threads(self.max_threads)
+        else:
+            logger.info(
+                f"Using default max_threads={self.max_threads} "
+                f"(configured cpu_count={configured_cpu_count})"
+            )
+    
     """
     Multi-process version of ReinforcementLearner4Action for improved training speed.
     
     Uses SubprocVecEnv to create multiple parallel environments based on cpu_count setting.
     Expected speed improvement: 5-15x compared to single-environment version.
+    
+    Key optimization: Overrides max_threads calculation to use full configured cpu_count
+    instead of being limited to max_system_threads/2.
     
     Usage:
     freqtrade backtesting --strategy RLStrategy4Action --config user_data/config_v3.json \
