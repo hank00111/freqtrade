@@ -84,13 +84,41 @@ class ReinforcementLearner4Action(ReinforcementLearner):
 
             # Unified Exit action for both Long and Short positions
             if action == Actions.Exit.value and self._position == Positions.Long:
+                # Log PNL for Long exits
+                self.tensorboard_log("long_exit_pnl", value=pnl, category="pnl")
+                self.tensorboard_log("exit_pnl", value=pnl, category="pnl")
+                
+                # Track profitable vs loss exits
+                if pnl > 0:
+                    self.tensorboard_log("profitable_exit", category="pnl")
+                    self.tensorboard_log("profitable_pnl_sum", value=pnl, category="pnl")
+                else:
+                    self.tensorboard_log("loss_exit", category="pnl")
+                    self.tensorboard_log("loss_pnl_sum", value=pnl, category="pnl")
+                
                 if pnl > self.profit_aim * self.rr:
                     factor *= self.rl_config["model_reward_parameters"].get("win_reward_factor", 2)
+                    self.tensorboard_log("big_win_exit", category="pnl")
+                
                 return float(rew * factor)
 
             if action == Actions.Exit.value and self._position == Positions.Short:
+                # Log PNL for Short exits
+                self.tensorboard_log("short_exit_pnl", value=pnl, category="pnl")
+                self.tensorboard_log("exit_pnl", value=pnl, category="pnl")
+                
+                # Track profitable vs loss exits
+                if pnl > 0:
+                    self.tensorboard_log("profitable_exit", category="pnl")
+                    self.tensorboard_log("profitable_pnl_sum", value=pnl, category="pnl")
+                else:
+                    self.tensorboard_log("loss_exit", category="pnl")
+                    self.tensorboard_log("loss_pnl_sum", value=pnl, category="pnl")
+                
                 if pnl > self.profit_aim * self.rr:
                     factor *= self.rl_config["model_reward_parameters"].get("win_reward_factor", 2)
+                    self.tensorboard_log("big_win_exit", category="pnl")
+                
                 return float(rew * factor)
 
             return 0.0
