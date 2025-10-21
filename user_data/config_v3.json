@@ -48,7 +48,7 @@
     "freqai": {
         "enabled": true,
         "purge_old_models": 3,
-        "train_period_days": 60,
+        "train_period_days": 180,
         "backtest_period_days": 10,
         "identifier": "PPO_15m_v3_multiproc",
         "continual_learning": false,
