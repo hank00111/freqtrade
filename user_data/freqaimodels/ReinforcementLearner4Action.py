@@ -126,6 +126,7 @@ class ReinforcementLearner4Action(ReinforcementLearner):
                 position_type = "long" if self._position == Positions.Long else "short"
                 self.tensorboard_log(f"{position_type}_exit_pnl", value=pnl, category="pnl")
                 self.tensorboard_log("exit_pnl", value=pnl, category="pnl")
+                self.tensorboard_log("total_pnl_sum", value=pnl, category="pnl")
                 
                 if pnl > 0:
                     self.tensorboard_log("profitable_exit", category="pnl")
