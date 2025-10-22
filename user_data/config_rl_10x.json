@@ -77,7 +77,7 @@
             ]
         },
         "rl_config": {
-            "train_cycles": 100,
+            "train_cycles": 300,
             "max_trade_duration_candles": 300,
             "model_type": "PPO",
             "policy_type": "MlpPolicy",
@@ -107,7 +107,7 @@
         "model_training_parameters": {
             "learning_rate": 0.00025,
             "gamma": 0.9,
-            "verbose": 1
+            "verbose": 0
         }
     },
     "bot_name": "config_rl_10x",
