@@ -108,7 +108,7 @@
             "add_state_info": false,
             "max_trade_duration_candles": 50,
             "max_training_drawdown_pct": 0.05,
-            "cpu_count": 8,
+            "cpu_count": 10,
             "model_type": "PPO",
             "policy_type": "MlpPolicy",
             "net_arch": [

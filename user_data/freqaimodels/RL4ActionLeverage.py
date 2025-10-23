@@ -148,7 +148,7 @@ class RL4ActionLeverage(ReinforcementLearner4Action):
 
             pnl = self.get_unrealized_profit()  # Already includes 10x leverage
             rew = pnl
-            factor = 10000.0
+            factor = 500.0
 
             # Reward agent for entering trades
             if (

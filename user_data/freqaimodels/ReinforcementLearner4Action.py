@@ -53,7 +53,7 @@ class ReinforcementLearner4Action(ReinforcementLearner):
 
             pnl = self.get_unrealized_profit()
             rew = pnl
-            factor = 10000.0  # Increased base factor to compensate for removing +1 offset
+            factor = 1000.0  # Increased base factor to compensate for removing +1 offset
 
             # Reward agent for entering trades
             if (
