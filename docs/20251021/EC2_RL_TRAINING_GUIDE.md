@@ -5,6 +5,7 @@
 This guide provides comprehensive steps for setting up and running Reinforcement Learning (RL) training on AWS EC2 using FreqAI.
 
 **Target EC2 Instance:** c6g.8xlarge
+
 - **Architecture:** ARM64 (AWS Graviton2)
 - **vCPU:** 32
 - **Memory:** 64 GB
@@ -35,20 +36,24 @@ This guide provides comprehensive steps for setting up and running Reinforcement
 ### 1.1 Launch EC2 Instance
 
 1. **Choose AMI:**
+
    - Ubuntu Server 22.04 LTS (ARM64) - Recommended
    - Amazon Linux 2023 (ARM64) - Alternative
    - **Note:** Python 3.12+ is required for FreqAI RL
 
 2. **Instance Type:**
+
    - c6g.8xlarge (32 vCPU, 64 GB RAM)
 
 3. **Storage:**
+
    - Root Volume: 100 GB GP3 (minimum)
    - Recommended: 200 GB for training data and models
    - IOPS: 3000 (default)
    - Throughput: 125 MB/s (default)
 
 4. **Security Group:**
+
    - SSH (22): Your IP
    - TensorBoard (6006): Your IP (optional, for monitoring)
 
@@ -66,6 +71,7 @@ ssh -i your-key.pem ubuntu@<EC2-PUBLIC-IP>
 ```
 
 For TensorBoard access (optional):
+
 ```bash
 # SSH with port forwarding
 ssh -i your-key.pem -L 6006:localhost:6006 ubuntu@<EC2-PUBLIC-IP>
@@ -82,6 +88,7 @@ ssh -i your-key.pem -L 6006:localhost:6006 ubuntu@<EC2-PUBLIC-IP>
 ✅ **If your `python3 --version` already shows 3.12.x**, you can simply use `python3` instead of `python3.12` in all commands.
 
 ✅ **If your `python3 --version` shows an older version** (like 3.10.x), either:
+
 - Use `python3.12` explicitly in commands, OR
 - Set `python3` to point to `python3.12` using update-alternatives (shown in section 2.3)
 
@@ -142,12 +149,14 @@ ls -la /usr/bin/python3*
 ```
 
 **Option A: If python3 already shows 3.12.x**
+
 ```bash
 # You can use python3 throughout this guide
 # No additional setup needed!
 ```
 
 **Option B: If python3 shows older version (e.g., 3.10.x)**
+
 ```bash
 # Option B1: Use python3.12 explicitly (recommended for clarity)
 # Just use python3.12 in commands instead of python3
@@ -236,6 +245,7 @@ python --version
 ```
 
 **Important:** Always activate the virtual environment before any operations:
+
 ```bash
 source .venv/bin/activate
 ```
@@ -251,7 +261,7 @@ source .venv/bin/activate
 source .venv/bin/activate
 
 # Upgrade pip, wheel, and setuptools
-python -m pip install --upgrade pip wheel setuptools
+python3 -m pip install --upgrade pip wheel setuptools
 ```
 
 ### 5.2 Install FreqAI RL Dependencies
@@ -294,6 +304,7 @@ python -c "from freqtrade.freqai.prediction_models.ReinforcementLearner import R
 ```
 
 Expected output:
+
 ```
 PyTorch version: 2.9.0
 SB3 version: 2.7.0
@@ -332,18 +343,18 @@ Key optimizations in `config_v3.json`:
 
 ```json
 {
-    "freqai": {
-        "data_kitchen_thread_count": 16,  // Half of vCPUs for data processing
-        "rl_config": {
-            "cpu_count": 24,                // 75% of vCPUs for training
-            "train_cycles": 100             // Optimized for faster iterations
-        },
-        "model_training_parameters": {
-            "batch_size": 2048,             // Utilizing 64GB RAM
-            "n_steps": 8192,                // Larger buffer for better learning
-            "n_epochs": 20                  // More epochs per update
-        }
+  "freqai": {
+    "data_kitchen_thread_count": 16, // Half of vCPUs for data processing
+    "rl_config": {
+      "cpu_count": 24, // 75% of vCPUs for training
+      "train_cycles": 100 // Optimized for faster iterations
+    },
+    "model_training_parameters": {
+      "batch_size": 2048, // Utilizing 64GB RAM
+      "n_steps": 8192, // Larger buffer for better learning
+      "n_epochs": 20 // More epochs per update
     }
+  }
 }
 ```
 
@@ -384,9 +395,11 @@ source .venv/bin/activate
 
 # Download data for your trading pairs (example: BTC/USDT, ETH/USDT)
 freqtrade download-data \
-    --config user_data/config_v3.json \
+    --config user_data/config_rl_10x_v2_cloud.json \
     --timerange 20221101-20251019 \
-    --timeframes 15m 1h 4h
+    --timeframes 5m 15m 1h 4h \
+    --trading-mode futures \
+    --prepend
 freqtrade download-data --exchange binance --pairs BTC/USDT:USDT ETH/USDT:USDT --timeframe 5m 15m 1h 4h --timerange 20221101-20251019 --trading-mode futures --prepend
 # Verify downloaded data
 ls -lh user_data/data/binance/
@@ -425,12 +438,13 @@ Before full training, test the setup:
 ```bash
 # Test with shorter timerange
 freqtrade backtesting \
-    --strategy RLStrategy4Action \
-    --config user_data/config_v3.json \
-    --freqaimodel ReinforcementLearner4Action \
-    --timerange 20250101-20250110 \
+    --strategy RLStrategy4ActionLeverage \
+    --config user_data/config_rl_10x_v2_cloud.json \
+    --freqaimodel RL4ActionLeverage_multiproc \
+    --timerange 20230101-20250110 \
     --export trades
 
+freqtrade backtesting --strategy RLStrategy4ActionLeverage --config .\user_data\config_rl_10x_v2_cloud.json --freqaimodel RL4ActionLeverage_multiproc --timerange 20230101-20251019 --export trades
 # Check for errors
 ```
 
@@ -456,6 +470,7 @@ freqtrade backtesting \
 For long training sessions, use `screen` or `tmux`:
 
 **Using screen:**
+
 ```bash
 # Install screen
 sudo apt install screen -y
@@ -478,6 +493,7 @@ freqtrade backtesting \
 ```
 
 **Using tmux:**
+
 ```bash
 # Install tmux
 sudo apt install tmux -y
@@ -537,6 +553,7 @@ tensorboard --logdir user_data/models/PPO_15m_v3
 **Option 1: SSH Port Forwarding (Local Machine)**
 
 If you connected with port forwarding:
+
 ```bash
 ssh -i your-key.pem -L 6006:localhost:6006 ubuntu@<EC2-PUBLIC-IP>
 ```
@@ -546,6 +563,7 @@ Then access in your browser: `http://localhost:6006`
 **Option 2: Security Group Configuration**
 
 1. Add inbound rule to EC2 security group:
+
    - Type: Custom TCP
    - Port: 6006
    - Source: Your IP address
@@ -557,6 +575,7 @@ Then access in your browser: `http://localhost:6006`
 ### 9.3 TensorBoard Metrics to Monitor
 
 Key metrics to watch:
+
 - **train/loss**: Should decrease over time
 - **train/policy_loss**: Policy improvement
 - **train/value_loss**: Value function learning
@@ -570,11 +589,13 @@ Key metrics to watch:
 ### 10.1 CPU Utilization
 
 **Optimal Settings:**
+
 - `cpu_count`: 24 (75% of 32 vCPUs)
 - `data_kitchen_thread_count`: 16 (50% of vCPUs)
 - Leave 8 vCPUs for system operations and data I/O
 
 **Monitoring:**
+
 ```bash
 # Real-time CPU monitoring
 htop
@@ -586,11 +607,13 @@ mpstat 1 10
 ### 10.2 Memory Management
 
 **With 64GB RAM:**
+
 - `batch_size`: 2048 (increased from 512)
 - `n_steps`: 8192 (increased from 4096)
 - Monitor memory usage to avoid OOM
 
 **Memory Monitoring:**
+
 ```bash
 # Watch memory in real-time
 watch -n 1 free -h
@@ -605,24 +628,26 @@ vmstat 1
 
 ```json
 {
-    "train_period_days": 60,        // More data per training
-    "backtest_period_days": 10,     // Larger validation window
-    "train_cycles": 100,            // Balanced for quality vs. speed
-    "n_epochs": 20,                 // More epochs per update
-    "batch_size": 2048,             // Utilize RAM
-    "n_steps": 8192,                // Larger experience buffer
-    "learning_rate": 0.00003        // Slightly lower for stability
+  "train_period_days": 60, // More data per training
+  "backtest_period_days": 10, // Larger validation window
+  "train_cycles": 100, // Balanced for quality vs. speed
+  "n_epochs": 20, // More epochs per update
+  "batch_size": 2048, // Utilize RAM
+  "n_steps": 8192, // Larger experience buffer
+  "learning_rate": 0.00003 // Slightly lower for stability
 }
 ```
 
 ### 10.4 Storage I/O Optimization
 
 **GP3 Volume Settings:**
+
 - IOPS: 3000 (minimum)
 - Throughput: 125 MB/s (minimum)
 - Consider increasing for larger datasets
 
 **Monitor I/O:**
+
 ```bash
 # Install iotop
 sudo apt install iotop -y
@@ -634,11 +659,13 @@ sudo iotop -o
 ### 10.5 ARM64-Specific Considerations
 
 **PyTorch on ARM64:**
+
 - Fully supported since PyTorch 2.0
 - Native ARM64 builds provide excellent performance
 - No need for Rosetta or emulation
 
 **Performance:**
+
 - Graviton2 provides excellent price/performance
 - Expect ~20-30% better cost efficiency vs x86
 - Training speed comparable to c5.8xlarge
@@ -744,13 +771,14 @@ find user_data/models -type f -mtime +30 -delete
 
 **Expected Performance on c6g.8xlarge:**
 
-| Configuration | Training Speed | Time for 2-year Dataset |
-|--------------|----------------|------------------------|
-| Default (8 CPU) | ~100-150 steps/s | ~12-15 hours |
-| Optimized (24 CPU) | ~250-350 steps/s | ~5-7 hours |
-| Max (32 CPU) | ~300-400 steps/s | ~4-6 hours |
+| Configuration      | Training Speed   | Time for 2-year Dataset |
+| ------------------ | ---------------- | ----------------------- |
+| Default (8 CPU)    | ~100-150 steps/s | ~12-15 hours            |
+| Optimized (24 CPU) | ~250-350 steps/s | ~5-7 hours              |
+| Max (32 CPU)       | ~300-400 steps/s | ~4-6 hours              |
 
 **Note:** Actual speed depends on:
+
 - Strategy complexity
 - Number of features
 - Network architecture
@@ -759,16 +787,19 @@ find user_data/models -type f -mtime +30 -delete
 ### 12.2 Cost Optimization
 
 **c6g.8xlarge Pricing (us-east-1, on-demand):**
+
 - ~$1.088/hour
 - ~$26/day for continuous training
 
 **Recommendations:**
+
 1. Use Spot Instances (60-90% discount)
 2. Stop instance when not training
 3. Use Savings Plans for long-term usage
 4. Consider c6g.4xlarge for smaller datasets
 
 **Spot Instance Setup:**
+
 ```bash
 # When launching EC2, select "Request Spot Instances"
 # Set max price (e.g., $0.50/hour)
@@ -793,6 +824,7 @@ freqtrade backtesting --strategy RLStrategy --config config_eth.json ...
 ```
 
 **Resource Allocation:**
+
 - Split CPU cores between sessions
 - Adjust `cpu_count` proportionally
 - Monitor total resource usage
@@ -885,6 +917,7 @@ aws ec2 terminate-instances --instance-ids i-1234567890abcdef0
 ```
 
 **Important:** Stopping vs. Terminating:
+
 - **Stop:** Preserves data, can restart later
 - **Terminate:** Deletes instance, data lost (unless using EBS volumes)
 
@@ -937,15 +970,18 @@ screen -X -S training quit
 ## 16. Additional Resources
 
 ### Documentation
+
 - FreqAI Documentation: https://www.freqtrade.io/en/stable/freqai/
 - Reinforcement Learning Guide: https://www.freqtrade.io/en/stable/freqai-reinforcement-learning/
 - AWS Graviton: https://aws.amazon.com/ec2/graviton/
 
 ### Support
+
 - Freqtrade Discord: https://discord.gg/freqtrade
 - GitHub Issues: https://github.com/freqtrade/freqtrade/issues
 
 ### Monitoring Tools
+
 - htop: Process monitoring
 - nvidia-smi: GPU monitoring (if using GPU instances)
 - TensorBoard: Training visualization
@@ -957,6 +993,7 @@ screen -X -S training quit
 This guide provides a comprehensive workflow for RL training on EC2 c6g.8xlarge. The ARM64-based Graviton2 processors offer excellent performance for FreqAI workloads at competitive pricing.
 
 **Key Takeaways:**
+
 - c6g.8xlarge provides 32 vCPU and 64GB RAM for efficient training
 - ARM64 architecture is fully supported by PyTorch and FreqAI
 - Optimize `cpu_count`, `batch_size`, and `n_steps` for best performance
@@ -965,6 +1002,7 @@ This guide provides a comprehensive workflow for RL training on EC2 c6g.8xlarge.
 - Consider Spot Instances for cost savings
 
 **Next Steps:**
+
 1. Complete initial setup following this guide
 2. Run test training with short timerange
 3. Optimize configuration based on resource usage
@@ -972,3 +1010,19 @@ This guide provides a comprehensive workflow for RL training on EC2 c6g.8xlarge.
 5. Analyze results and iterate on strategy
 
 Good luck with your RL training!
+
+sudo apt-get update
+sudo apt upgrade -y
+sudo apt install -y     build-essential     git     curl     wget     python3.12     python3.12-venv     python3.12-dev     python3-pip     libssl-dev     libffi-dev     libxml2-dev     libxslt1-dev     zlib1g-dev     libblas-dev     liblapack-dev     gfortran     pkg-config     cmake
+git clone https://github.com/hank00111/freqtrade.git
+
+cd freqtrade
+python3 -m venv .venv
+source .venv/bin/activate
+
+python3 -m pip install --upgrade pip wheel setuptools
+pip install -r requirements-freqai-rl.txt
+pip install -e .
+
+freqtrade download-data --config user_data/config_rl_10x_v2_cloud.json --timerange 20221101-20251019 --timeframes 5m 15m 1h 4h --trading-mode futures --prepend
+freqtrade backtesting --strategy RLStrategy4ActionLeverage --config user_data/config_rl_10x_v2_cloud.json --freqaimodel RL4ActionLeverage_multiproc --timerange 20230101-20250110 --export trades
