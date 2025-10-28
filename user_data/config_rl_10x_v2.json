@@ -58,7 +58,7 @@
         "live_retrain_hours": 0,
         "data_kitchen_thread_count": 20,
         "continual_learning": false,
-        "write_metrics_to_disk": true,
+        "write_metrics_to_disk": false,
         "identifier": "rl-10x-v2-256-20251028",
         "feature_parameters": {
             "include_timeframes": [
