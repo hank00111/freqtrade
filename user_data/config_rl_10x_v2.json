@@ -59,7 +59,7 @@
         "data_kitchen_thread_count": 20,
         "continual_learning": false,
         "write_metrics_to_disk": true,
-        "identifier": "rl-10x-v2-256",
+        "identifier": "rl-10x-v2-256-20251028",
         "feature_parameters": {
             "include_timeframes": [
                 "5m",
@@ -94,9 +94,9 @@
             "leverage_risk_penalty": 0.10,
             "add_state_info": false,
             "net_arch": [
-                512,
-                512,
-                256
+                256,
+                256,
+                128
             ],
             "model_reward_parameters": {
                 "rr": 1,
@@ -107,9 +107,9 @@
                     "medium_win": 4,
                     "big_win": 8,
                     "huge_win": 16,
-                    "mega_win": 32
+                    "mega_win": 26
                 },
-                "base_factor": 15.0,
+                "base_factor": 10.0,
                 "time_reward_max": 2.0,
                 "time_reward_slope": 1.5,
                 "risk_adjustment_cap": 2.0,
@@ -120,11 +120,11 @@
                 "invalid_action_penalty": -2,
                 "leverage_loss_multiplier": 1.5,
                 "safe_zone_penalty": 0,
-                "warning_zone_penalty": -100,
-                "danger_zone_penalty": -300,
-                "immediate_feedback_safe": 0.3,
-                "immediate_feedback_warning": 1.5,
-                "immediate_feedback_danger": 8.0
+                "warning_zone_penalty": -150,
+                "danger_zone_penalty": -500,
+                "immediate_feedback_safe": 0.8,
+                "immediate_feedback_warning": 3.0,
+                "immediate_feedback_danger": 10.0
             },
             "randomize_starting_position": true,
             "drop_ohlc_from_features": false
@@ -136,13 +136,13 @@
         "model_training_parameters": {
             "learning_rate": 0.0001,
             "gamma": 0.95,
-            "batch_size": 256,
-            "n_steps": 2048,
+            "batch_size": 512,
+            "n_steps": 4096,
             "n_epochs": 10,
             "gae_lambda": 0.95,
-            "clip_range": 0.1,
-            "ent_coef": 0.01,
-            "vf_coef": 0.5,
+            "clip_range": 0.15,
+            "ent_coef": 0.1,
+            "vf_coef": 0.8,
             "max_grad_norm": 0.5,
             "normalize_advantage": true,
             "device": "cpu"
