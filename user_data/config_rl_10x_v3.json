@@ -1,0 +1,157 @@
+{
+    "$schema": "https://schema.freqtrade.io/schema.json",
+    "trading_mode": "futures",
+    "margin_mode": "cross",
+    "max_open_trades": 2,
+    "stake_currency": "USDT",
+    "stake_amount": 100,
+    "tradable_balance_ratio": 0.99,
+    "fiat_display_currency": "USD",
+    "dry_run": true,
+    "dry_run_wallet": 1000,
+    "cancel_open_orders_on_exit": true,
+    "timeframe": "5m",
+    "liquidation_buffer": 0.05,
+    "unfilledtimeout": {
+        "entry": 60,
+        "exit": 30,
+        "unit": "minutes",
+        "exit_timeout_count": 3
+    },
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
+        "pair_whitelist": [
+            "BTC/USDT:USDT",
+            "ETH/USDT:USDT"
+        ],
+        "pair_blacklist": []
+    },
+    "entry_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1,
+        "price_last_balance": 0.0,
+        "check_depth_of_market": {
+            "enabled": false,
+            "bids_to_ask_delta": 1
+        }
+    },
+    "exit_pricing": {
+        "price_side": "other",
+        "use_order_book": true,
+        "order_book_top": 1
+    },
+    "pairlists": [
+        {
+            "method": "StaticPairList"
+        }
+    ],
+    "freqai": {
+        "enabled": true,
+        "purge_old_models": 2,
+        "train_period_days": 45,
+        "backtest_period_days": 7,
+        "live_retrain_hours": 0,
+        "data_kitchen_thread_count": 20,
+        "continual_learning": false,
+        "write_metrics_to_disk": false,
+        "identifier": "rl-10x-v3-256-20251030",
+        "feature_parameters": {
+            "include_timeframes": [
+                "5m",
+                "15m",
+                "1h",
+                "4h"
+            ],
+            "include_corr_pairlist": [
+                "BTC/USDT:USDT",
+                "ETH/USDT:USDT"
+            ],
+            "label_period_candles": 20,
+            "include_shifted_candles": 2,
+            "DI_threshold": 0.9,
+            "weight_factor": 0.9,
+            "principal_component_analysis": false,
+            "use_SVM_to_remove_outliers": true,
+            "indicator_periods_candles": [
+                10,
+                20
+            ]
+        },
+        "rl_config": {
+            "train_cycles": 1000,
+            "max_trade_duration_candles": 300,
+            "model_type": "PPO",
+            "policy_type": "MlpPolicy",
+            "max_training_drawdown_pct": 0.80,
+            "cpu_count": 20,
+            "leverage": 10.0,
+            "liquidation_buffer": 0.025,
+            "leverage_risk_penalty": 0.10,
+            "add_state_info": false,
+            "net_arch": [
+                512,
+                512,
+                256
+            ],
+            "model_reward_parameters": {
+                "rr": 1,
+                "profit_aim": 0.25,
+                "win_reward_factor": 1.5,
+                "tier_multipliers": {
+                    "small_win": 2,
+                    "medium_win": 4,
+                    "big_win": 6,
+                    "huge_win": 8,
+                    "mega_win": 10
+                },
+                "base_factor": 10.0,
+                "time_reward_max": 2.0,
+                "time_reward_slope": 1.5,
+                "risk_adjustment_cap": 2.0,
+                "base_profit_bonus": 2,
+                "enter_trade_reward": 15,
+                "neutral_penalty": -0.5,
+                "liquidation_penalty": -1000.0,
+                "invalid_action_penalty": -2,
+                "leverage_loss_multiplier": 1.5,
+                "safe_zone_penalty": 0,
+                "warning_zone_penalty": -100,
+                "danger_zone_penalty": -300,
+                "immediate_feedback_safe": 0.8,
+                "immediate_feedback_warning": 3.0,
+                "immediate_feedback_danger": 10.0
+            },
+            "randomize_starting_position": true,
+            "drop_ohlc_from_features": false
+        },
+        "data_split_parameters": {
+            "test_size": 0.25,
+            "random_state": 1
+        },
+        "model_training_parameters": {
+            "learning_rate": 0.0001,
+            "gamma": 0.99,
+            "batch_size": 1024,
+            "n_steps": 4096,
+            "n_epochs": 12,
+            "gae_lambda": 0.95,
+            "clip_range": 0.15,
+            "ent_coef": 0.1,
+            "vf_coef": 1.5,
+            "max_grad_norm": 0.5,
+            "normalize_advantage": true,
+            "device": "cpu"
+        }
+    },
+    "bot_name": "config_rl_10x_v3",
+    "force_entry_enable": false,
+    "initial_state": "running",
+    "internals": {
+        "process_throttle_secs": 5
+    }
+}
