@@ -59,7 +59,7 @@
         "data_kitchen_thread_count": 16,
         "continual_learning": false,
         "write_metrics_to_disk": true,
-        "identifier": "rl-10x-v2-256",
+        "identifier": "rl-10x-v2-256-old",
         "feature_parameters": {
             "include_timeframes": [
                 "5m",
