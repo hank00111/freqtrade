@@ -59,7 +59,7 @@
         "data_kitchen_thread_count": 16,
         "continual_learning": false,
         "write_metrics_to_disk": true,
-        "identifier": "rl-10x-v2-256-old",
+        "identifier": "rl-10x-v2-256-old-20251104",
         "feature_parameters": {
             "include_timeframes": [
                 "5m",
@@ -83,7 +83,7 @@
             ]
         },
         "rl_config": {
-            "train_cycles": 500,
+            "train_cycles": 800,
             "max_trade_duration_candles": 300,
             "model_type": "PPO",
             "policy_type": "MlpPolicy",
