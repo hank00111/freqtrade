@@ -85,7 +85,7 @@ python -c "import talib; print(talib.__version__)"
 
 ## 4. Install Dependencies
 
-### Option A: Requirements file (exact version pinning)
+### 4.1 Base install (CPU)
 
 ```powershell
 # This single file chains:
@@ -101,7 +101,53 @@ pip install -r requirements-freqai-rl.txt
 pip install -e .
 ```
 
-### Option B: pyproject.toml extras
+### 4.2 GPU support (CUDA)
+
+`requirements-freqai-rl.txt` installs CPU-only torch by default.
+To enable GPU training, reinstall the PyTorch stack from the official CUDA index.
+
+#### Version compatibility matrix (torch 2.10.0)
+
+| Package | Version | Notes |
+|---------|---------|-------|
+| torch | 2.10.0 | From requirements-freqai-rl.txt |
+| torchvision | 0.25.0 | Must match torch version |
+| torchaudio | 2.10.0 | Must match torch version |
+
+Source: [PyTorch Versions Wiki](https://github.com/pytorch/pytorch/wiki/PyTorch-Versions)
+
+#### Available CUDA variants (torch 2.10.0)
+
+| CUDA | index-url | Min driver |
+|------|-----------|------------|
+| 12.6 | `https://download.pytorch.org/whl/cu126` | >= 560.x |
+| 12.8 | `https://download.pytorch.org/whl/cu128` | >= 570.x |
+| 13.0 | `https://download.pytorch.org/whl/cu130` | >= 580.x |
+
+Check your driver: `nvidia-smi` (top-right shows max supported CUDA version).
+
+#### Install command (CUDA 12.8 recommended)
+
+```powershell
+pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 `
+  --index-url https://download.pytorch.org/whl/cu128 `
+  --force-reinstall --no-deps
+```
+
+If `pip` reports "already satisfied" without downloading ~2.9 GB, add
+`--force-reinstall --no-deps` to replace the CPU wheel with the CUDA wheel.
+
+#### Enable GPU in config
+
+After installing CUDA torch, update `config_daytrade.json`:
+
+```json
+"model_training_parameters": {
+    "device": "cuda"
+}
+```
+
+### 4.3 Alternative: pyproject.toml extras
 
 ```powershell
 # FreqAI + RL only
@@ -110,6 +156,9 @@ pip install -e ".[freqai_rl]"
 # Or everything (plot, hyperopt, freqai, rl, jupyter)
 pip install -e ".[all]"
 ```
+
+Note: pyproject.toml extras also install CPU-only torch. Follow Section 4.2
+to upgrade to CUDA after install.
 
 ### Dependency chain
 
@@ -123,7 +172,9 @@ requirements-freqai-rl.txt
  |    |-- xgboost==3.1.3
  |    |-- tensorboard==2.20.0
  |    +-- datasieve==0.1.9
- |-- torch==2.10.0
+ |-- torch==2.10.0                  # CPU default; see 4.2 for CUDA
+ |-- torchvision==0.25.0            # auto-installed with torch
+ |-- torchaudio==2.10.0             # auto-installed with torch
  |-- gymnasium==1.2.3
  |-- stable_baselines3==2.7.1
  |-- sb3_contrib>=2.2.1
@@ -134,11 +185,16 @@ requirements-freqai-rl.txt
 
 ```powershell
 python -c "import freqtrade; print('freqtrade OK')"
-python -c "import torch; print(f'torch {torch.__version__}')"
+python -c "import torch; print(f'torch {torch.__version__}, cuda={torch.cuda.is_available()}')"
+python -c "import torchvision; print(f'torchvision {torchvision.__version__}')"
+python -c "import torchaudio; print(f'torchaudio {torchaudio.__version__}')"
 python -c "import stable_baselines3; print(f'sb3 {stable_baselines3.__version__}')"
 python -c "import gymnasium; print(f'gymnasium {gymnasium.__version__}')"
 python -c "import talib; print(f'ta-lib {talib.__version__}')"
 python -c "import sklearn; print(f'sklearn {sklearn.__version__}')"
+
+# GPU-specific check (only if CUDA installed)
+python -c "import torch; print(f'GPU: {torch.cuda.get_device_name(0)}')" 2>$null
 ```
 
 ---
@@ -263,6 +319,35 @@ freqtrade plot-dataframe `
   --timerange 20250101-20250201
 ```
 
+### 7.4 AI-powered training analysis (Claude Code)
+
+Use the `/analyze-rl` skill in Claude Code to get AI-powered health analysis
+of TensorBoard training logs. It parses event files, computes health metrics,
+and provides actionable recommendations.
+
+```
+# Analyze default model (rl-daytrade-v1), last 5 windows
+/analyze-rl
+
+# Analyze a specific model with more windows
+/analyze-rl rl-10x-v2 10
+```
+
+Health checks performed:
+- Reward trend (improving / flat / declining)
+- Liquidation rate (percentage of episodes ending in liquidation)
+- Win rate (profitable exits vs loss exits)
+- Policy collapse (action distribution balance)
+- Value loss stability (SB3 training metric)
+- Invalid action rate
+
+The skill runs `scripts/analyze_rl_training.py` under the hood. You can also
+run the script directly:
+
+```powershell
+python scripts/analyze_rl_training.py --model-id rl-daytrade-v1 --last-n 5
+```
+
 ---
 
 ## 8. File Reference
@@ -299,8 +384,28 @@ Solution: Use pre-built wheel (Section 3, Option A).
 ### torch installation fails or too slow
 
 ```powershell
-# Install CPU-only version (smaller download)
-pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+# Install CPU-only version (smaller download, ~114 MB vs ~2.9 GB)
+pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 `
+  --index-url https://download.pytorch.org/whl/cpu
+```
+
+### torchaudio/torchvision version conflict after pip install
+
+```
+torchaudio X.X.X requires torch==X.X.X, but you have torch Y.Y.Y which is incompatible.
+```
+
+This happens when `requirements-freqai-rl.txt` upgrades torch but not
+torchaudio/torchvision. Fix by installing matching versions:
+
+```powershell
+# CPU
+pip install torchaudio==2.10.0 torchvision==0.25.0
+
+# Or with CUDA (see Section 4.2)
+pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 `
+  --index-url https://download.pytorch.org/whl/cu128 `
+  --force-reinstall --no-deps
 ```
 
 ### Out of memory during training
@@ -377,17 +482,23 @@ python -m pip install --upgrade pip
 # 2. Install TA-Lib wheel first (adjust filename for your Python version)
 # pip install path\to\ta_lib-0.6.8-cpXXX-cpXXX-win_amd64.whl
 
-# 3. Install all dependencies
+# 3. Install all dependencies (CPU)
 pip install -r requirements-freqai-rl.txt
 pip install -e .
 
-# 4. Download data
+# 4. (Optional) Upgrade to GPU / CUDA 12.8
+pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 `
+  --index-url https://download.pytorch.org/whl/cu128 `
+  --force-reinstall --no-deps
+# Then set "device": "cuda" in config_daytrade.json
+
+# 5. Download data
 freqtrade download-data `
   --config user_data/config_daytrade.json `
   --timerange 20231001-20260201 `
   --timeframe 5m 15m 1h 4h
 
-# 5. Quick validation run (1 month)
+# 6. Quick validation run (1 month)
 freqtrade backtesting `
   --strategy RLDayTradeStrategy `
   --config user_data/config_daytrade.json `
@@ -395,7 +506,7 @@ freqtrade backtesting `
   --timerange 20250101-20250201 `
   --export trades
 
-# 6. Full backtest (single-env, with Tensorboard)
+# 7. Full backtest (single-env, with Tensorboard)
 freqtrade backtesting `
   --strategy RLDayTradeStrategy `
   --config user_data/config_daytrade.json `
@@ -403,7 +514,7 @@ freqtrade backtesting `
   --timerange 20240101-20260101 `
   --export trades
 
-# 7. Full backtest (multi-process, production)
+# 8. Full backtest (multi-process, production)
 freqtrade backtesting `
   --strategy RLDayTradeStrategy `
   --config user_data/config_daytrade.json `
