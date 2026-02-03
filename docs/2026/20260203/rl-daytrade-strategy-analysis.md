@@ -60,8 +60,16 @@ With 10x leverage, liquidation threshold is base PNL -5%.
 
 Recommendations for SOL:
 - Consider reducing leverage to 5x (liquidation threshold widens to -15%)
-- Set tighter stoploss at -0.02 (-2%)
+- Set tighter stoploss at -0.02 (-2%) via `custom_stoploss()` callback
 - Apply stricter risk penalties in reward function
+
+**Implementation note:** Single `stoploss` parameter cannot differentiate
+between pairs. Use `custom_stoploss()` callback to return -0.03 for ETH
+and -0.02 for SOL. Similarly, `leverage()` callback should return 10.0
+for ETH and 5.0 for SOL. However, the RL training environment does NOT
+use strategy callbacks (see Section 8.4). Leverage in the env comes from
+`rl_config.leverage`. To train SOL with 5x leverage, use a separate
+config with a different `identifier` (e.g., "rl-daytrade-sol-v1").
 
 ---
 
@@ -105,6 +113,27 @@ Environment:
 | Exit | 1 | Unified exit (long or short) |
 | Long_enter | 2 | Enter long position |
 | Short_enter | 3 | Enter short position |
+
+**4-Action constraint:** Agent cannot flip position directly (e.g., Long -> Short).
+Must exit first, then enter the opposite direction (minimum 2 steps to flip).
+`Base4ActionRLEnv.is_tradesignal()` enforces:
+- `Long_enter` while in Short -> invalid (not a trade signal)
+- `Short_enter` while in Long -> invalid (not a trade signal)
+
+**Strategy action mapping (4-Action):**
+
+```python
+# populate_entry_trend:
+enter_long:  df["&-action"] == 2
+enter_short: df["&-action"] == 3
+
+# populate_exit_trend:
+exit_long:   df["&-action"] == 1   # unified Exit
+exit_short:  df["&-action"] == 1   # same action for both
+```
+
+Note: This differs from 5-Action examples in official docs where action==1
+is Long_enter. Always verify action values against the environment used.
 
 ---
 
@@ -254,9 +283,9 @@ Step 3: Identify Nearest S/R
   nearest_support    = max(levels WHERE level < close)
   nearest_resistance = min(levels WHERE level > close)
 
-Step 4: Detect Break
-  support_break:    close < support AND close[N_prev] > support (sustained)
-  resistance_break: close > resistance AND close[N_prev] < resistance (sustained)
+Step 4: Detect Break (single-candle)
+  support_break:    close crosses below previous nearest support
+  resistance_break: close crosses above previous nearest resistance
 
 Step 5: Detect Flip (Retest)
   After support_break:
@@ -346,7 +375,16 @@ Exit action:
 - get_unrealized_profit() overridden: base_pnl * leverage
 - Liquidation check: base_pnl <= -(1/leverage - buffer)
 - Liquidation penalty: -10 (maximum)
-- Holding penalty amplified by (1 + leverage_risk_penalty)
+
+Liquidation threshold calculation:
+  With leverage=10, liquidation_buffer=0.025:
+  threshold = -(1/10 - 0.025) = -(0.1 - 0.025) = -0.075 (-7.5% base PNL)
+  In leveraged PNL: -7.5% * 10 = -75%
+
+  Note: existing RL4ActionLeverage.py uses buffer=0.05 (threshold -5%).
+  Our buffer=0.025 is tighter (closer to real Binance liquidation),
+  giving less margin for error. This is an intentional design choice
+  for more accurate simulation.
 ```
 
 ---
@@ -357,6 +395,13 @@ Exit action:
 
 ```json
 {
+  "trading_mode": "futures",
+  "margin_mode": "isolated",
+  "stake_amount": 100,
+  "stake_currency": "USDT",
+  "timeframe": "5m",
+  "can_short": true,
+  "fee": 0.0004,
   "freqai": {
     "enabled": true,
     "purge_old_models": 2,
@@ -365,6 +410,7 @@ Exit action:
     "live_retrain_hours": 0,
     "continual_learning": false,
     "identifier": "rl-daytrade-v1",
+    "conv_width": 10,
     "feature_parameters": {
       "include_timeframes": ["5m", "15m", "1h", "4h"],
       "include_corr_pairlist": ["BTC/USDT:USDT"],
@@ -376,10 +422,31 @@ Exit action:
       "use_SVM_to_remove_outliers": false,
       "use_DBSCAN_to_remove_outliers": false,
       "principal_component_analysis": false
+    },
+    "data_split_parameters": {
+      "test_size": 0.25,
+      "random_state": 1
     }
   }
 }
 ```
+
+**Notes on added fields:**
+- `trading_mode`, `margin_mode`, `stake_amount`, `stake_currency`:
+  Required for futures trading. Without these, freqtrade runs in spot mode.
+- `fee: 0.0004`: Binance Futures taker fee (0.04%). The framework default
+  is 0.0015 (0.15%) which is too high. Setting explicitly ensures accurate
+  backtesting results.
+- `conv_width: 10`: Neural network observation window size. Default is 2.
+  With ~488 features, a wider window gives the agent more temporal context.
+  Adjust based on training performance.
+- `data_split_parameters.test_size: 0.25`: Explicit 75/25 train/test split.
+  **Framework default is 0.1 (90/10)**, not 0.25. Must be set explicitly
+  to match the training steps calculation in Section 8.2.
+- `weight_factor: 0.9`: Creates exponential decay weights favoring recent
+  data in the train/test split. Note: these weights affect which data points
+  go into the train vs test set, but do NOT weight individual steps during
+  RL training (the environment treats all candles equally).
 
 ### 7.2 RL Config
 
@@ -398,10 +465,9 @@ Exit action:
     "add_state_info": false,
     "leverage": 10.0,
     "liquidation_buffer": 0.025,
-    "leverage_risk_penalty": 0.10,
     "model_reward_parameters": {
       "rr": 1,
-      "profit_aim": 0.005
+      "profit_aim": 0.05
     }
   }
 }
@@ -435,12 +501,12 @@ Exit action:
 | train_period_days | 75 | Cover multiple market regimes |
 | backtest_period_days | 7 | Weekly retraining cycle |
 | continual_learning | false | Avoid regime drift accumulation |
-| weight_factor | 0.9 | Favor recent data in training |
+| weight_factor | 0.9 | Weight train/test split toward recent data (does not weight RL steps) |
 | train_cycles | 500 | Sufficient with 75d data, avoid overfit |
 | max_trade_duration_candles | 48 | 4 hours max (intraday constraint) |
-| max_training_drawdown_pct | 0.50 | Strict for intraday risk tolerance |
+| max_training_drawdown_pct | 0.50 | Episode ends at 50% cumulative loss (1 - 0.50 = 0.50 threshold) |
 | net_arch | [256, 256] | Smaller network for better generalization |
-| profit_aim | 0.005 | 0.5% price move target |
+| profit_aim | 0.05 | 5% leveraged PNL target (= 0.5% base price move at 10x) |
 | ent_coef | 0.01 | Low exploration, faster convergence |
 | clip_range | 0.2 | Standard PPO, moderate update steps |
 | learning_rate | 0.0003 | PPO default, good with fewer train_cycles |
@@ -451,9 +517,28 @@ Exit action:
 minimal_roi = {"0": 0.05, "30": 0.03, "60": 0.01}
 stoploss = -0.03
 use_exit_signal = True
-startup_candle_count = 40
+startup_candle_count = 60
 can_short = True
 process_only_new_candles = True
+```
+
+**startup_candle_count rationale:**
+Must be >= max indicator period used in feature_engineering functions.
+- EMA_50 in expand_basic requires 50 candles minimum
+- MACD default (26+9=35) needs 35 candles
+- Set to 60 for safety margin (covers all indicators with buffer)
+- FreqAI uses this together with max timeframe (4h) to calculate
+  total data download requirement automatically.
+
+**Per-pair stoploss:** The single `stoploss = -0.03` applies to all pairs.
+For SOL-specific -0.02 stoploss, implement `custom_stoploss()`:
+
+```python
+def custom_stoploss(self, pair: str, trade, current_time, current_rate,
+                    current_profit, after_fill, **kwargs) -> float | None:
+    if "SOL" in pair:
+        return -0.02
+    return -0.03
 ```
 
 ---
@@ -474,9 +559,17 @@ Explicitly set them to False/0 to avoid confusion.
 ### 8.2 Total Training Steps Calculation
 
 ```
-train_df = 75 days * 288 candles/day * 0.75 (train split) = 16,200 candles
+train_df = 75 days * 288 candles/day * 0.75 (train split, test_size=0.25) = 16,200 candles
 total_timesteps = train_cycles * len(train_df) = 500 * 16,200 = 8,100,000
 With 16 parallel envs: ~506,250 steps per env
+
+IMPORTANT: The framework default test_size is 0.1 (not 0.25).
+If data_split_parameters.test_size is not explicitly set in config,
+the actual calculation would be:
+  train_df = 75 * 288 * 0.90 = 19,440 candles
+  total_timesteps = 500 * 19,440 = 9,720,000
+Ensure data_split_parameters.test_size = 0.25 is set in config
+(see Section 7.1) to match this calculation.
 ```
 
 ### 8.3 Required Raw OHLCV
@@ -492,35 +585,141 @@ dataframe["%-raw_low"] = dataframe["low"]
 These are used by build_ohlc_price_dataframes() to create the price
 environment for the RL agent. Without them, training fails.
 
+### 8.4 RL Environment vs Strategy Callbacks
+
+The RL training environment does NOT use strategy callbacks:
+- `leverage()` callback: NOT used in training env
+- `custom_stoploss()`: NOT used in training env
+- `custom_exit()`: NOT used in training env
+
+This means:
+- Leverage must be implemented inside `MyRLEnv` via `self.rl_config.get("leverage")`
+- Liquidation checks must be in `MyRLEnv.calculate_reward()` or `step()`
+- Per-pair leverage (ETH 10x, SOL 5x) requires separate configs/identifiers
+
+Strategy callbacks ARE used in live/dry_run/backtesting after training,
+so they must still be implemented for correct execution.
+
+### 8.5 Multiprocessing Tensorboard Limitation
+
+Source: `ReinforcementLearner_multiproc.py` line 82-83:
+
+```
+TENSORBOARD CALLBACK DOES NOT RECOMMENDED TO USE WITH MULTIPLE ENVS,
+IT WILL RETURN FALSE INFORMATION, NEVERTHELESS NOT THREAD SAFE WITH SB3!!!
+```
+
+When using `RLDayTrader_multiproc.py`, Tensorboard metrics are unreliable.
+Use single-env `RLDayTrader.py` for reward function debugging, then switch
+to multiproc for production training.
+
+### 8.6 cpu_count Capping
+
+Source: `BaseReinforcementLearningModel.__init__()` line 47-50:
+
+```python
+self.max_threads = min(
+    self.freqai_info["rl_config"].get("cpu_count", 1),
+    max(int(self.max_system_threads / 2), 1),
+)
+```
+
+`cpu_count: 16` will be capped to `system_physical_cores / 2`.
+If system has < 32 physical cores, actual threads < 16.
+Verify with: `python -c "import os; print(os.cpu_count())"`
+
+### 8.7 Implementation Review Findings
+
+Post-implementation cross-reference audit against framework source code.
+Reviewed on 2026-02-03.
+
+**CRITICAL fix applied: profit_aim**
+
+Original value `profit_aim: 0.005` was compared against LEVERAGED PNL
+(`base_pnl * leverage`). With leverage=10, a 0.5% base move = 0.05
+leveraged PNL, which is 10x the threshold. This meant almost every
+normal ETH price move fell in the "extreme loss" zone (-10 reward).
+
+Fixed to `profit_aim: 0.05` (5% leveraged = 0.5% base target at 10x).
+Loss zone thresholds with the fix:
+- Small loss: leveraged PNL < 5% (base < 0.5%) -> -1
+- Medium loss: leveraged PNL < 10% (base < 1%) -> linear(-1, -5)
+- Large loss: leveraged PNL < 15% (base < 1.5%) -> -8
+- Beyond: -10
+
+**Removed: leverage_risk_penalty**
+
+The `leverage_risk_penalty` parameter was read in `__init__` but never
+used in `calculate_reward()`. Section 6.3 originally claimed it amplified
+holding penalties, but this was never implemented. Removed from code,
+config, and documentation to avoid confusion.
+
+**Warnings (no code fix needed):**
+
+1. `max_training_drawdown_pct=0.50` with leverage: `max_drawdown = 1 - 0.50 = 0.50`.
+   With additive mode (`stake_amount=100`, not "unlimited"),
+   `_total_profit` starts at 1.0. A single 5% base adverse move with 10x
+   leverage reduces `_total_profit` to ~0.50, ending the episode immediately.
+   This may cause very short training episodes initially. Monitor via
+   Tensorboard episode length metrics. Consider raising to 0.70 if episodes
+   are too short.
+
+2. Post-liquidation trading: After liquidation, `_is_liquidated=True`
+   disables further liquidation checks for the remainder of the episode.
+   The agent can open new trades without liquidation protection. The
+   drawdown check provides a secondary safety net. This is consistent
+   with the existing RL4ActionLeverage template behavior.
+
+3. S/R level lists grow without pruning during `_compute_sr_features()`.
+   For 75 days of 5m data (~21,600 candles), expect ~200-500 unique levels
+   after clustering. Linear scan per candle is O(n * levels) ~ 10M ops,
+   acceptable for one-time feature computation.
+
 ---
 
 ## 9. Implementation Checklist
 
-- [ ] Create RLDayTradeStrategy.py
-  - [ ] feature_engineering_expand_all (RSI, ADX, ATR_norm, Rel_Vol)
-  - [ ] feature_engineering_expand_basic (EMA, BB, MACD, S/R Flip features)
-  - [ ] feature_engineering_standard (raw OHLCV, time features)
-  - [ ] set_freqai_targets (&-action = 0)
-  - [ ] populate_entry_trend (4-action mapping)
-  - [ ] populate_exit_trend (unified exit)
-  - [ ] leverage() method
-- [ ] Create RLDayTrader.py
-  - [ ] MyRLEnv (Base4ActionRLEnv)
-  - [ ] calculate_reward (compressed [-10, +10])
-  - [ ] get_unrealized_profit (leverage-aware)
-  - [ ] _check_liquidation
-- [ ] Create RLDayTrader_multiproc.py
-  - [ ] Override max_threads
-  - [ ] Same MyRLEnv as RLDayTrader
-- [ ] Create config_daytrade.json
-  - [ ] Full config with all parameters
+Reference: existing strategies in `user_data/strategies/` (RLStrategy4Action.py,
+RLStrategy4ActionLeverage.py) and models in `user_data/freqaimodels/`
+(RL4ActionLeverage.py, RL4ActionLeverage_multiproc.py) can be used as templates.
+
+- [x] Create config_daytrade.json
+  - [x] trading_mode, margin_mode, stake_amount, stake_currency
+  - [x] fee: 0.0004 (Binance Futures taker)
+  - [x] freqai section with all parameters (Section 7.1)
+  - [x] data_split_parameters: test_size=0.25
+  - [x] conv_width setting
+  - [x] rl_config section (Section 7.2)
+  - [x] model_training_parameters (Section 7.3)
+- [x] Create RLDayTradeStrategy.py
+  - [x] feature_engineering_expand_all (RSI, ADX, ATR_norm, Rel_Vol)
+  - [x] feature_engineering_expand_basic (EMA, BB, MACD, S/R Flip features)
+  - [x] feature_engineering_standard (raw OHLCV, time features)
+  - [x] set_freqai_targets (&-action = 0)
+  - [x] populate_entry_trend (4-action: Long=2, Short=3)
+  - [x] populate_exit_trend (unified Exit=1 for both long and short)
+  - [x] leverage() callback (ETH=10.0, SOL=5.0)
+  - [x] custom_stoploss() callback (ETH=-0.03, SOL=-0.02)
+  - [x] Verify startup_candle_count >= 60
+- [x] Create RLDayTrader.py
+  - [x] MyRLEnv (Base4ActionRLEnv)
+  - [x] __init__: read leverage, liquidation_buffer from rl_config
+  - [x] calculate_reward (compressed [-10, +10])
+  - [x] get_unrealized_profit (leverage-aware: base_pnl * leverage)
+  - [x] _check_liquidation (threshold: -(1/leverage - buffer))
+- [x] Create RLDayTrader_multiproc.py
+  - [x] Override max_threads
+  - [x] Same MyRLEnv as RLDayTrader
+  - [x] Note: Tensorboard unreliable with multiproc (see Section 8.5)
 - [ ] Download data
   - [ ] ETH/USDT:USDT (5m, 15m, 1h, 4h)
   - [ ] SOL/USDT:USDT (5m, 15m, 1h, 4h)
   - [ ] BTC/USDT:USDT (5m, 15m, 1h, 4h) (corr pair)
-- [ ] Run backtest
+- [ ] Run backtest (single-env first for Tensorboard debugging)
 - [ ] Evaluate results
 - [ ] Iterate on reward function
+- [ ] Switch to multiproc for production training
+- [ ] (Optional) Create separate config for SOL with leverage=5.0
 
 ---
 
@@ -692,17 +891,36 @@ with 10x leverage.
 
 ### 11.3 Source Code References
 
+#### Framework Files
+
 | File | Key Content |
 |------|-------------|
 | `freqtrade/freqai/freqai_interface.py` | IFreqaiModel base class, training pipeline, sliding window |
-| `freqtrade/freqai/data_kitchen.py` | Data split, feature filtering, weight_factor |
+| `freqtrade/freqai/data_kitchen.py` | Data split, feature filtering, weight_factor (default test_size=0.1) |
 | `freqtrade/freqai/data_drawer.py` | Model persistence, historic predictions |
-| `freqtrade/freqai/RL/BaseEnvironment.py` | Base gym.Env, positions, actions, unrealized profit |
-| `freqtrade/freqai/RL/Base4ActionRLEnv.py` | 4-action step/is_tradesignal/is_valid logic |
-| `freqtrade/freqai/RL/BaseReinforcementLearningModel.py` | RL train flow, unset_outlier_removal, predict, multiproc |
-| `freqtrade/freqai/prediction_models/ReinforcementLearner.py` | fit() with continual_learning, default MyRLEnv |
+| `freqtrade/freqai/RL/BaseEnvironment.py` | Base gym.Env, positions, actions, unrealized profit, fee handling |
+| `freqtrade/freqai/RL/Base4ActionRLEnv.py` | 4-action step/is_tradesignal/is_valid logic, position flip constraint |
+| `freqtrade/freqai/RL/BaseReinforcementLearningModel.py` | RL train flow, unset_outlier_removal, predict, pack_env_dict |
+| `freqtrade/freqai/prediction_models/ReinforcementLearner.py` | fit() with continual_learning, default MyRLEnv (Base5Action) |
+| `freqtrade/freqai/prediction_models/ReinforcementLearner_multiproc.py` | SubprocVecEnv, Tensorboard thread-safety warning |
 | `freqtrade/templates/FreqaiExampleStrategy.py` | Official strategy template |
-| `config_examples/config_freqai.example.json` | Official config example |
+| `config_examples/config_freqai.example.json` | Official config example (includes trading_mode, margin_mode) |
+
+#### Existing Custom Models (user_data/freqaimodels/) - Use as Templates
+
+| File | Key Content |
+|------|-------------|
+| `ReinforcementLearner4Action.py` | Base 4-action model, multi-tier reward, no leverage |
+| `RL4ActionLeverage.py` | 10x leverage, liquidation check (buffer=0.05), -1000 penalty |
+| `ReinforcementLearner4Action_multiproc.py` | Multiproc 4-action, configurable reward params |
+| `RL4ActionLeverage_multiproc.py` | Most advanced: multiproc + leverage + dense rewards + 3-tier loss zones |
+
+#### Existing Custom Strategies (user_data/strategies/) - Use as Templates
+
+| File | Key Content |
+|------|-------------|
+| `RLStrategy4Action.py` | 4-action strategy with expand_all/basic/standard, entry/exit mapping |
+| `RLStrategy4ActionLeverage.py` | Extends RLStrategy4Action with leverage() callback returning 10.0 |
 
 ### 11.4 External References
 
