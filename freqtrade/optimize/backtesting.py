@@ -126,6 +126,7 @@ class Backtesting:
 
         self.config["dry_run"] = True
         self.price_pair_prec: dict[str, Series] = {}
+        self.available_pairs: list[str] = []
         self.run_ids: dict[str, str] = {}
         self.strategylist: list[IStrategy] = []
         self.all_bt_content: dict[str, BacktestContentType] = {}
@@ -176,7 +177,8 @@ class Backtesting:
         self._validate_pairlists_for_backtesting()
 
         self.dataprovider.add_pairlisthandler(self.pairlists)
-        self.pairlists.refresh_pairlist()
+        self.dynamic_pairlist: bool = self.config.get("enable_dynamic_pairlist", False)
+        self.pairlists.refresh_pairlist(only_first=self.dynamic_pairlist)
 
         if len(self.pairlists.whitelist) == 0:
             raise OperationalException("No pair in whitelist.")
@@ -211,7 +213,6 @@ class Backtesting:
         self._can_short = self.trading_mode != TradingMode.SPOT
         self._position_stacking: bool = self.config.get("position_stacking", False)
         self.enable_protections: bool = self.config.get("enable_protections", False)
-        self.dynamic_pairlist: bool = self.config.get("enable_dynamic_pairlist", False)
         migrate_data(config, self.exchange)
 
         self.init_backtest()
@@ -335,10 +336,12 @@ class Backtesting:
         self.progress.set_new_value(1)
         self._load_bt_data_detail()
         self.price_pair_prec = {}
+
         for pair in self.pairlists.whitelist:
             if pair in data:
                 # Load price precision logic
                 self.price_pair_prec[pair] = get_tick_size_over_time(data[pair])
+                self.available_pairs.append(pair)
         return data, self.timerange
 
     def _load_bt_data_detail(self) -> None:
@@ -371,6 +374,7 @@ class Backtesting:
                 timerange=self.timerange,
                 startup_candles=0,
                 fail_without_data=True,
+                fill_up_missing=False,
                 data_format=self.config["dataformat_ohlcv"],
                 candle_type=CandleType.FUNDING_RATE,
             )
@@ -435,6 +439,8 @@ class Backtesting:
         PairLocks.reset_locks()
         Trade.reset_trades()
         CustomDataWrapper.reset_custom_data()
+        # Ensure logging is disabled in other processes during hyperopt
+        LoggingMixin.show_output = False
         self.rejected_trades = 0
         self.timedout_entry_orders = 0
         self.timedout_exit_orders = 0
@@ -599,8 +605,6 @@ class Backtesting:
         trade_dur: int,
     ) -> float:
         is_short = trade.is_short or False
-        leverage = trade.leverage or 1.0
-        side_1 = -1 if is_short else 1
         roi_entry, roi = self.strategy.min_roi_reached_entry(
             trade,  # type: ignore[arg-type]
             trade_dur,
@@ -613,10 +617,7 @@ class Backtesting:
                 # - we'll use open instead of close
                 return row[OPEN_IDX]
 
-            # - (Expected abs profit - open_rate - open_fee) / (fee_close -1)
-            roi_rate = trade.open_rate * roi / leverage
-            open_fee_rate = side_1 * trade.open_rate * (1 + side_1 * trade.fee_open)
-            close_rate = -(roi_rate + open_fee_rate) / ((trade.fee_close or 0.0) - side_1 * 1)
+            close_rate = trade.calc_close_rate_for_roi(roi)
             if is_short:
                 is_new_roi = row[OPEN_IDX] < close_rate
             else:
@@ -1587,7 +1588,7 @@ class Backtesting:
             self.check_abort()
 
             if self.dynamic_pairlist and self.pairlists:
-                self.pairlists.refresh_pairlist()
+                self.pairlists.refresh_pairlist(pairs=self.available_pairs)
                 pairs = self.pairlists.whitelist
 
             # Reset open trade count for this candle
