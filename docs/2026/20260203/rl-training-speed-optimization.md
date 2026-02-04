@@ -42,16 +42,16 @@ relative performance on your hardware.
 
 | Factor | Affects | Guideline |
 |--------|---------|-----------|
-| GPU VRAM | `device: "cuda"` feasibility, max `batch_size` | >= 8 GB recommended. 12 GB+ allows batch_size 1024+ |
-| GPU compute | Gradient update speed | Higher-tier GPU = faster forward/backward pass |
+| GPU VRAM | `device: "cuda"` feasibility | Only relevant for CnnPolicy or net_arch with 10M+ params. MlpPolicy [256,256] runs faster on CPU |
+| GPU compute | Gradient update speed | Not beneficial for current MlpPolicy. See Section 3.1 |
 | CPU cores | `cpu_count` (multiproc parallelism) | Set `cpu_count` to physical cores or `logical / 2`. More cores = faster data collection |
 | RAM | Max subprocess count | Each env uses ~63 MB data + Python overhead. 16 envs needs ~2-3 GB headroom |
 | Torch build | GPU utilization | Must be CUDA build (`torch.cuda.is_available() == True`) to use GPU |
 
 **Adjusting config for your hardware**:
 
+- **Any GPU + MlpPolicy [256,256]**: Keep `"device": "cpu"`. GPU does not help at this network size.
 - **No GPU**: Keep `"device": "cpu"`. Multiproc still helps (data collection is CPU-bound).
-- **GPU < 8 GB VRAM**: Use `"device": "cuda"` with `batch_size: 512`. Monitor with `nvidia-smi`.
 - **CPU < 8 cores**: Set `cpu_count` to physical core count. Fewer than 4 cores may not benefit from multiproc.
 - **RAM < 16 GB**: Reduce `cpu_count` to 4-8 to limit subprocess memory usage.
 
@@ -63,7 +63,7 @@ Based on `config_daytrade.json`:
 |------|-------|
 | Base features | 488 (expand_all: 192, expand_basic: 288, standard: 8) |
 | Observation dim | 488 x conv_width(10) = **4,880** |
-| Network params | ~1.3M per network (4880 -> 256 -> 256 -> 4) |
+| Network params | ~2.6M total (see breakdown below) |
 | Train candles/pair | ~16,200 (75 days x 5m x 0.75 train split) |
 | total_timesteps | train_cycles(500) x 16,200 = **8,100,000** |
 | Rollouts (single env) | 8,100,000 / n_steps(2048) = 3,955 |
@@ -73,21 +73,71 @@ Based on `config_daytrade.json`:
 | Time per pair per window | 8.1M / 680 = **198 min (~3.3 hr)** |
 | Time for 2 pairs | **~6.6 hr per training window** |
 
+### Network Parameter Calculation
+
+SB3 PPO with `MlpPolicy` creates two separate networks (actor and critic),
+each with its own copy of layers. Formula: `input x output + output (bias)` per layer.
+
+**Policy network (actor)** — outputs action probabilities:
+
+| Layer | Shape | Params |
+|-------|-------|--------|
+| Linear 1 | 4,880 x 256 | 4,880 x 256 + 256 = **1,249,536** |
+| Linear 2 | 256 x 256 | 256 x 256 + 256 = **65,792** |
+| Output | 256 x 4 | 256 x 4 + 4 = **1,028** |
+| **Subtotal** | | **1,316,356** |
+
+**Value network (critic)** — outputs state value estimate:
+
+| Layer | Shape | Params |
+|-------|-------|--------|
+| Linear 1 | 4,880 x 256 | 4,880 x 256 + 256 = **1,249,536** |
+| Linear 2 | 256 x 256 | 256 x 256 + 256 = **65,792** |
+| Output | 256 x 1 | 256 x 1 + 1 = **257** |
+| **Subtotal** | | **1,315,585** |
+
+**Total trainable parameters: ~2.6M**
+
+This is a small model by GPU standards. For reference, GPU acceleration typically
+becomes beneficial at 10M+ parameters. At 2.6M, CPU-GPU data transfer overhead
+exceeds the computation speedup (see Section 3.1).
+
 ### PPO Training Cycle
 
 ```
 [Data Collection: env.step() x 2048]  -->  [Gradient Update: 10 epochs x 4 batches]
-       ^-- CPU-bound (env logic)                 ^-- GPU-accelerable
+       ^-- CPU-bound (env logic)                 ^-- CPU-bound (MlpPolicy, see 3.1)
        ^-- ~60% of wall time                     ^-- ~40% of wall time
 ```
 
 ## 3. Optimization Plans
 
-### 3.1 Install CUDA Torch + `device: "cuda"` (est. +30-50%)
+### 3.1 Install CUDA Torch + `device: "cuda"`
 
-**Problem**: RTX 3080 Ti 12GB is completely idle. Torch is compiled as CPU-only
-(`torch.version.cuda = None`). All matrix operations (forward pass, backward pass,
-gradient update) run on CPU.
+> **Important: MlpPolicy + GPU limitation**
+>
+> SB3 officially warns that **PPO with MlpPolicy should run on CPU, not GPU**.
+> The current `net_arch: [256, 256]` produces only ~2.6M parameters. At this scale,
+> CPU-GPU data transfer overhead exceeds the computation speedup, and training on
+> GPU can be **slower** than CPU.
+>
+> SB3 source (`on_policy_algorithm.py:142-160`) emits this warning:
+> ```
+> You are trying to run PPO on the GPU, but it is primarily intended to run
+> on the CPU when not using a CNN policy.
+> ```
+>
+> SB3 official docs explicitly use `device="cpu"` for PPO + MlpPolicy:
+> ```python
+> model = PPO("MlpPolicy", env, device="cpu")
+> ```
+>
+> **Recommendation**: Keep `"device": "cpu"` with the current network size.
+> GPU becomes beneficial when using CnnPolicy or `net_arch` with 10M+ parameters
+> (e.g., `[2048, 1024, 512]`).
+
+**When GPU helps**: If you later switch to a larger network or CnnPolicy,
+install CUDA Torch and set `device: "cuda"` using the instructions below.
 
 **Change**:
 
@@ -99,11 +149,9 @@ Then in `config_daytrade.json`:
 
 ```jsonc
 "model_training_parameters": {
-    "device": "cuda"    // was "cpu"
+    "device": "cuda"    // only beneficial for large networks or CnnPolicy
 }
 ```
-
-**Expected**: Gradient update phase 2-4x faster -> overall +30-50%.
 
 #### Do I need to uninstall CPU Torch first?
 
@@ -221,8 +269,8 @@ function debugging, then switch to `RLDayTrader_multiproc` for production traini
 }
 ```
 
-**Why**: Larger batches are more GPU-efficient (better utilization of parallel cores)
-and reduce the number of gradient updates per rollout.
+**Why**: Larger batches reduce the number of gradient updates per rollout, lowering
+per-rollout overhead. On CPU, larger batches also improve cache utilization.
 
 Gradient updates per rollout = `n_epochs x (buffer_size / batch_size)`:
 
@@ -256,17 +304,52 @@ Gradient updates per rollout (see table in 3.3 for exact numbers):
 
 | Scenario | Changes | Est. Speed | Time/pair |
 |----------|---------|-----------|-----------|
-| Baseline | - | 680 it/s | 198 min |
-| A: CUDA only | device=cuda | ~1,000 it/s | 135 min |
-| B: A + multiproc | + RLDayTrader_multiproc | ~3,500 it/s | 39 min |
-| C: B + tuning | + batch=1024, epochs=5 | ~4,500 it/s | **30 min** |
+| Baseline | Single env, CPU | 680 it/s | 198 min |
+| A: Multiproc | + RLDayTrader_multiproc | ~3,000 it/s | 45 min |
+| B: A + tuning | + batch=1024, epochs=5 | ~4,000 it/s | **34 min** |
 
-Scenario B is the recommended target: CUDA + multiproc gives the biggest
-improvement with minimal risk. Scenario C adds minor tuning on top.
+Scenario A is the recommended first step: multiproc gives the biggest
+improvement with no config changes. Scenario B adds minor tuning on top.
+
+> **Note on CUDA**: With the current `net_arch: [256, 256]` (MlpPolicy, ~2.6M params),
+> GPU does not provide additional speedup. The `device` should remain `"cpu"`.
+> If you later scale to larger networks, revisit Section 3.1.
 
 ## 5. Implementation Steps
 
-### Phase 1: CUDA Torch
+### Phase 1: Multi-process
+
+The biggest speedup. No config changes needed, only change the `--freqaimodel` argument.
+
+```powershell
+# Short test run (1 training window)
+freqtrade backtesting --strategy RLDayTradeStrategy `
+  --config user_data/config_daytrade.json `
+  --freqaimodel RLDayTrader_multiproc `
+  --timerange 20250101-20250401
+```
+
+- [ ] Training completes with RLDayTrader_multiproc
+- [ ] Measure new it/s speed (expect ~3,000 it/s)
+- [ ] Compare backtesting results with single-process (should be similar)
+
+### Phase 2: Batch/Epoch Tuning (optional)
+
+```jsonc
+// config_daytrade.json
+"model_training_parameters": {
+    "batch_size": 1024,   // was 512
+    "n_epochs": 5         // was 10
+}
+```
+
+- [ ] Training completes without degraded results
+- [ ] Measure final it/s speed
+
+### Phase 3: CUDA Torch (optional, for future larger networks)
+
+Only needed if you scale `net_arch` to much larger sizes or switch to CnnPolicy.
+With the current `[256, 256]`, GPU does not help.
 
 ```powershell
 # Step 1: Install CUDA Torch (replaces CPU version)
@@ -289,35 +372,7 @@ freqtrade backtesting --strategy RLDayTradeStrategy `
 - [ ] `torch.cuda.is_available()` returns True
 - [ ] config_daytrade.json updated: `"device": "cuda"`
 - [ ] Single window training completes without errors
-- [ ] Measure new it/s speed
-
-### Phase 2: Multi-process
-
-```powershell
-# Switch to multiproc model (no config changes needed)
-freqtrade backtesting --strategy RLDayTradeStrategy `
-  --config user_data/config_daytrade.json `
-  --freqaimodel RLDayTrader_multiproc `
-  --timerange 20250101-20250401
-```
-
-- [ ] Training completes with RLDayTrader_multiproc
-- [ ] Monitor GPU usage: `nvidia-smi -l 1` (should show GPU utilization during gradient updates)
-- [ ] Measure new it/s speed
-- [ ] Compare backtesting results with single-process (should be similar)
-
-### Phase 3: Batch/Epoch Tuning (optional)
-
-```jsonc
-// config_daytrade.json
-"model_training_parameters": {
-    "batch_size": 1024,   // was 512
-    "n_epochs": 5         // was 10
-}
-```
-
-- [ ] Training completes without degraded results
-- [ ] Measure final it/s speed
+- [ ] Measure new it/s speed (compare with CPU to confirm GPU is faster)
 
 ## 6. Monitoring
 
