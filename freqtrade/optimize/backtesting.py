@@ -136,6 +136,7 @@ class Backtesting:
             "exited": {},
         }
         self.rejected_dict: dict[str, list] = {}
+        self.starting_balance: float = 0.0
 
         self._exchange_name = self.config["exchange"]["name"]
         self.__initial_backtest = exchange is None
@@ -277,6 +278,7 @@ class Backtesting:
         self.reset_backtest(False)
 
         self.wallets = Wallets(self.config, self.exchange, is_backtest=True)
+        self.starting_balance = self.wallets.get_starting_balance()
 
         self.progress = BTProgress()
         self.abort = False
@@ -846,9 +848,7 @@ class Backtesting:
                         exit_tag=exit_reason,
                     )
                     if rate is not None and rate != close_rate:
-                        close_rate = price_to_precision(
-                            rate, trade.price_precision, trade.precision_mode_price
-                        )
+                        close_rate = rate
                     # We can't place orders lower than current low.
                     # freqtrade does not support this in live, and the order would fill immediately
                     if trade.is_short:
@@ -890,6 +890,9 @@ class Backtesting:
         self.order_id_counter += 1
         exit_candle_time = sell_row[DATE_IDX].to_pydatetime()
         order_type = self.strategy.order_types["exit"]
+        close_rate = price_to_precision(
+            close_rate, trade.price_precision, trade.precision_mode_price
+        )
         # amount = amount or trade.amount
         amount = amount_to_contract_precision(
             amount or trade.amount, trade.amount_precision, self.precision_mode, trade.contract_size
@@ -1271,8 +1274,8 @@ class Backtesting:
 
     def run_protections(self, pair: str, current_time: datetime, side: LongShort):
         if self.enable_protections:
-            self.protections.stop_per_pair(pair, current_time, side)
-            self.protections.global_stop(current_time, side)
+            self.protections.stop_per_pair(pair, current_time, side, self.starting_balance)
+            self.protections.global_stop(current_time, side, self.starting_balance)
 
     def manage_open_orders(self, trade: LocalTrade, current_time: datetime, row: tuple) -> bool:
         """
