@@ -1,0 +1,126 @@
+{
+    "$schema": "https://schema.freqtrade.io/schema.json",
+    "trading_mode": "futures",
+    "margin_mode": "isolated",
+    "max_open_trades": 1,
+    "stake_currency": "USDT",
+    "stake_amount": 100,
+    "tradable_balance_ratio": 1,
+    "fiat_display_currency": "USD",
+    "dry_run": true,
+    "timeframe": "5m",
+    "dry_run_wallet": 1000,
+    "cancel_open_orders_on_exit": true,
+    "unfilledtimeout": {
+        "entry": 10,
+        "exit": 30
+    },
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
+        "pair_whitelist": [
+            "BTC/USDT:USDT",
+            "ETH/USDT:USDT"
+        ],
+        "pair_blacklist": []
+    },
+    "entry_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1,
+        "price_last_balance": 0.0,
+        "check_depth_of_market": {
+            "enabled": false,
+            "bids_to_ask_delta": 1
+        }
+    },
+    "exit_pricing": {
+        "price_side": "other",
+        "use_order_book": true,
+        "order_book_top": 1
+    },
+    "pairlists": [
+        {
+            "method": "StaticPairList"
+        }
+    ],
+    "freqai": {
+        "enabled": true,
+        "purge_old_models": 2,
+        "train_period_days": 15,
+        "backtest_period_days": 7,
+        "live_retrain_hours": 0,
+        "identifier": "RL20251117",
+        "feature_parameters": {
+            "include_timeframes": [
+                "5m",
+                "15m",
+                "1h"
+            ],
+            "include_corr_pairlist": [
+                "BTC/USDT:USDT",
+                "ETH/USDT:USDT"
+            ],
+            "label_period_candles": 20,
+            "include_shifted_candles": 2,
+            "DI_threshold": 0.9,
+            "weight_factor": 0.9,
+            "principal_component_analysis": false,
+            "use_SVM_to_remove_outliers": true,
+            "indicator_periods_candles": [
+                10,
+                20
+            ],
+            "plot_feature_importances": 0
+        },
+        "data_split_parameters": {
+            "test_size": 0.33,
+            "random_state": 1
+        },
+        "rl_config": {
+            "train_cycles": 800,
+            "cpu_count": 16,
+            "model_type": "PPO",
+            "policy_type": "MlpPolicy",
+            "max_training_drawdown_pct": 0.15,
+            "model_reward_parameters": {
+                "rr": 1,
+                "profit_aim": 0.025,
+                "reward_entry": 25.0,
+                "penalty_invalid_action": -2.0,
+                "penalty_liquidation": -200.0,
+                "liquidation_threshold": -0.8,
+                "penalty_heavy_loss_threshold": -0.10,
+                "penalty_heavy_loss_factor": 20.0,
+                "penalty_heavy_loss_offset": 20.0,
+                "reward_profit_factor": 10.0,
+                "penalty_time_factor": 0.1,
+                "penalty_time_threshold": 100,
+                "penalty_inaction": -0.05
+            }
+        },
+        "model_training_parameters": {
+            "learning_rate": 0.0001,
+            "gamma": 0.95,
+            "batch_size": 256,
+            "n_steps": 2048,
+            "n_epochs": 10,
+            "gae_lambda": 0.95,
+            "clip_range": 0.1,
+            "ent_coef": 0.01,
+            "vf_coef": 0.5,
+            "max_grad_norm": 0.5,
+            "normalize_advantage": true,
+            "device": "cpu"
+        }
+    },
+    "bot_name": "RL_Bot",
+    "force_entry_enable": true,
+    "initial_state": "running",
+    "internals": {
+        "process_throttle_secs": 5
+    }
+}

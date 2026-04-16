@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(..venvScriptspython.exe -m pip index versions torchvision)",
+      "Bash(powershell -Command \"& ''G:\\\\Program\\\\freqtrade\\\\.venv\\\\Scripts\\\\python.exe'' ''G:\\\\Program\\\\freqtrade\\\\scripts\\\\analyze_rl_training.py'' ''rl-daytrade-v1'' ''5''\")",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "WebFetch(domain:dl.fxf1.com)",
+      "WebFetch(domain:dl.najafi8.ir)",
+      "Skill(analyze-rl)",
+      "Bash(cd:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:stable-baselines3.readthedocs.io)",
+      "Bash(git:*)",
+      "WebFetch(domain:www.freqtrade.io)",
+      "Bash(tasklist)",
+      "WebFetch(domain:sb3-contrib.readthedocs.io)"
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+{
+    "trading_mode": "futures",
+    "margin_mode": "isolated",
+    "max_open_trades": 2,
+    "stake_currency": "USDT",
+    "stake_amount": "unlimited",
+    "tradable_balance_ratio": 0.99,
+    "fiat_display_currency": "USD",
+    "dry_run": true,
+    "cancel_open_orders_on_exit": true,
+    "timeframe": "15m",
+    "unfilledtimeout": {
+        "entry": 10,
+        "exit": 30
+    },
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
+        "pair_whitelist": [
+            "BTC/USDT:USDT",
+            "ETH/USDT:USDT"
+        ],
+        "pair_blacklist": []
+    },
+    "entry_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1,
+        "price_last_balance": 0.0,
+        "check_depth_of_market": {
+            "enabled": false,
+            "bids_to_ask_delta": 1
+        }
+    },
+    "exit_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1
+    },
+    "pairlists": [
+        {
+            "method": "StaticPairList"
+        }
+    ],
+    "freqai": {
+        "enabled": true,
+        "purge_old_models": 3,
+        "train_period_days": 45,
+        "backtest_period_days": 7,
+        "identifier": "PPO_15m_v2",
+        "continual_learning": false,
+        "write_metrics_to_disk": true,
+        "live_retrain_hours": 12,
+        "data_kitchen_thread_count": 10,
+        "feature_parameters": {
+            "include_timeframes": [
+                "15m",
+                "1h",
+                "4h"
+            ],
+            "include_corr_pairlist": [],
+            "label_period_candles": 250,
+            "include_shifted_candles": 5,
+            "DI_threshold": 20,
+            "weight_factor": 0.9,
+            "principal_component_analysis": false,
+            "use_SVM_to_remove_outliers": true,
+            "indicator_periods_candles": [
+                10,
+                20
+            ],
+            "shuffle_after_split": false
+        },
+        "data_split_parameters": {
+            "test_size": 0.25,
+            "shuffle": false
+        },
+        "model_training_parameters": {
+            "learning_rate": 0.00005,
+            "batch_size": 512,
+            "n_steps": 4096,
+            "n_epochs": 15,
+            "gae_lambda": 0.95,
+            "clip_range": 0.1,
+            "ent_coef": 0.001,
+            "vf_coef": 0.5,
+            "max_grad_norm": 0.5,
+            "normalize_advantage": true,
+            "seed": 42,
+            "device": "cpu"
+        },
+        "_comment_DQN_params": {
+            "_NOTE": "DQN-specific parameters (commented out for PPO)",
+            "_buffer_size": 1000000,
+            "_learning_starts": 10000,
+            "_target_update_interval": 500,
+            "_train_freq": 4,
+            "_gradient_steps": 4,
+            "_exploration_fraction": 0.5,
+            "_exploration_initial_eps": 1.0,
+            "_exploration_final_eps": 0.1
+        },
+        "rl_config": {
+            "train_cycles": 200,
+            "add_state_info": false,
+            "max_trade_duration_candles": 50,
+            "max_training_drawdown_pct": 0.05,
+            "cpu_count": 10,
+            "model_type": "PPO",
+            "policy_type": "MlpPolicy",
+            "net_arch": [
+                512,
+                512,
+                256
+            ],
+            "drop_ohlc_from_features": false,
+            "randomize_starting_position": true,
+            "progress_bar": true,
+            "model_reward_parameters": {
+                "rr": 1,
+                "profit_aim": 0.020,
+                "base_factor": 50000,
+                "time_reward_max": 1.0,
+                "progressive_bonus_rate": 5.0,
+                "asymmetric_loss_penalty": 3.0,
+                "base_profit_bonus": 100,
+                "tier_multipliers": {
+                    "small_win": 25,
+                    "medium_win": 50,
+                    "big_win": 100,
+                    "huge_win": 200,
+                    "mega_win": 500
+                }
+            }
+        }
+    },
+    "bot_name": "freqai_dqn_gpu",
+    "force_entry_enable": false,
+    "initial_state": "running",
+    "internals": {
+        "process_throttle_secs": 5
+    }
+}

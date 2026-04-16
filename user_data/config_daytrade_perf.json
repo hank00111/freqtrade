@@ -1,0 +1,9 @@
+{
+    "$schema": "https://schema.freqtrade.io/schema.json",
+    "add_config_files": ["config_daytrade.json"],
+    "freqai": {
+        "model_training_parameters": {
+            "batch_size": 2048
+        }
+    }
+}

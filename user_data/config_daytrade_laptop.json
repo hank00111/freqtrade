@@ -1,0 +1,12 @@
+{
+    "$schema": "https://schema.freqtrade.io/schema.json",
+    "add_config_files": ["config_daytrade.json"],
+    "freqai": {
+        "rl_config": {
+            "cpu_count": 12
+        },
+        "model_training_parameters": {
+            "device": "cuda"
+        }
+    }
+}
