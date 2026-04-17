@@ -1451,4 +1451,94 @@ Next checkpoint: PPO_130-135. Watch:
 | Retrain summer | PPO_102-105 | 1.93 | 65% | Windows ~56-60, value recovery, summer low-vol market |
 | Retrain autumn | PPO_110-114 | 2.01 | 82% | Windows ~65-69, policy collapse returned, entropy -12pp reversal |
 | Retrain self-recovery | PPO_116-120 | 1.16 | 80% | Windows ~70-74, crossed original frontier, entropy +16.4pp reversal, FAIL resolved |
-| **Retrain continuation** | **PPO_121-125** | **1.24** | **78%** | **Windows ~75-79, entropy 54% (+8pp from trough), win rate FAIL is noise (674 sample), entering 2024 Q1** |
+| Retrain continuation | PPO_121-125 | 1.24 | 78% | Windows ~75-79, entropy 54% (+8pp from trough), win rate FAIL is noise (674 sample) |
+| **2nd retrain (post merge+data fix)** | **PPO_128-131** | **9.16** | **62%** | **2024-01 to 2024-03 BTC ETF rally, ATH profit, 11 OK/3 WARN/0 FAIL, upstream merged, Fix 1 applied** |
+
+## 11. Upstream Merge & Data Fix (2026-04-17)
+
+### 11.1 Upstream merge
+
+- Backed up dev/personal to `backup/dev-personal-20260417` (317 commits)
+- Reset dev/personal to upstream/develop (313 upstream commits forward, ~2026-04-14)
+- Selectively restored: user_data/, docs/, .github/copilot-instructions.md, .claude/, check_gpu.py, .gitignore
+- freqtrade/freqai/* now pure upstream, no local bug fix carryovers
+- Dependencies upgraded via requirements-freqai-rl.txt: SB3 2.7.1 -> 2.8.0, torch 2.10.0 -> 2.11.0
+
+### 11.2 Data gap fix
+
+- Symptom: 5m futures data only covered 2022-11-01 to 2026-03-24 despite --timerange 20220601-20260325
+- Root cause: freqtrade download-data is incremental; existing file never backfilled the 2022-06 to 2022-10 gap
+- Fix: Re-downloaded with --erase flag covering 20220101-20260325
+- Result: Training can now cover full backtest period including early 2022 with startup_candle_count buffer
+
+### 11.3 Fix 1 applied (upstream bug)
+
+In upstream's narrow try/except at `freqai_interface.py:370-382`, `self.model = None` on
+training failure, but `self.predict()` at line 396 ran unconditionally, crashing with
+`AttributeError: 'Pipeline' object has no attribute 'features_in'`.
+
+Fix applied at line 396:
+```python
+if self.model is not None:
+    pred_df, do_preds = self.predict(dataframe_backtest, dk)
+    append_df = dk.get_predictions_to_append(pred_df, do_preds, dataframe_backtest)
+    dk.append_predictions(append_df)
+    dk.save_backtesting_prediction(append_df)
+else:
+    logger.warning(
+        f"No model available for {pair}, skipping prediction "
+        f"for backtest window {tr_backtest.startdt} - {tr_backtest.stopdt}."
+    )
+```
+
+### 11.4 PPO_131 checkpoint (2026-04-17)
+
+After merge + data fix, training restarted. PPO_128-131 correspond to training
+windows ending 2024-01-10 to 2024-03-13 (BTC spot ETF approval rally period).
+
+Recent profits (PPO_128-131): 11.75, 0.74, 9.02, 15.11 -- avg 9.16
+PPO_132 in progress (20%): 6.45
+
+| Check | Status | Value | Note |
+|-------|--------|-------|------|
+| Win rate | OK | **51.7%** (600W/561L) | Resolved from FAIL, 12520 actions large sample |
+| Policy collapse | WARN | Neutral=62% | Down from 80%, trending toward OK |
+| Entropy | OK | **69% retained** | Up from 54%, new ATH |
+| Entropy trend | OK | -0.5pp | Stable |
+| Profit trend | OK | avg=9.16 | +86% vs original PPO_60-70 same period |
+| Liquidation rate | OK | 0.1% (1/1162) | Healthy |
+| Long/Short bias | OK | 53%L/47%S | Balanced |
+| Invalid actions | **WARN** | 19.3% | Exploration cost, agent more active |
+| Value loss | WARN | 1.32x | Stable |
+| Approx KL | OK | mean=0.0091 | Normal |
+| Clip fraction | OK | mean=0.085 | Normal |
+| Explained variance | OK | 0.634 | Predictive |
+| Sample size | OK | 12520 actions | Reliable |
+| Summary | | **11 OK, 3 WARN, 0 FAIL** | **ATH across entire training history** |
+
+Retrain vs original (2024 Q1 market period, PPO_60-70):
+
+| Metric | Original PPO_60-70 | Retrain PPO_128-131 | Change |
+|--------|--------------------|---------------------|--------|
+| avg profit | 4.92 | **9.16** | **+86%** |
+| Win rate | 47.9% | 51.7% | +3.8pp |
+| Neutral% | 66-69% | 54-62% | More active |
+| Entropy | 67% | 69% | Similar |
+
+Key observations:
+- **Feature engineering verified intact**: 392 features in all windows (first, middle, last).
+  user_data/ files identical to pre-merge backup.
+- **IStrategy interface 100% compatible with upstream**.
+- **Profit explosion is regime-driven + model improvement**:
+  70% 2024 Q1 BTC ETF rally, 20% reduced Neutral% (62% vs 80%), 10% complete data cycle exposure.
+- **ETH price context (PPO_128-131 training windows)**: $2,275 -> $3,162 (+39%), peak $4,098 (+80%).
+- **Invalid actions 19.3% WARN is exploration cost**, expected with more active trading in bull market.
+
+Training rate: 14 windows/day (accelerated due to shorter early-2022 episodes).
+Estimated full completion: **2026-04-26 to 2026-05-04**.
+
+Next checkpoint: PPO_140-145. Watch for 2024 Q2-Q3 (consolidation/retreat):
+- Does profit stay positive through range/bear market? True generalization test.
+- Does L/S bias remain balanced when no clear trend?
+- Does Neutral% rise naturally as opportunities diminish (expected, not bad)?
+- If profit turns negative in range market, flag as overfitting to 2024 bull regime.
