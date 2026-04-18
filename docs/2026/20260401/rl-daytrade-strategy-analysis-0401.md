@@ -1542,3 +1542,66 @@ Next checkpoint: PPO_140-145. Watch for 2024 Q2-Q3 (consolidation/retreat):
 - Does L/S bias remain balanced when no clear trend?
 - Does Neutral% rise naturally as opportunities diminish (expected, not bad)?
 - If profit turns negative in range market, flag as overfitting to 2024 bull regime.
+
+### 11.5 PPO_136 checkpoint (2026-04-18) -- generalization test in progress
+
+Training advanced 5 windows from PPO_131 (~1 day elapsed). PPO_132-136 cover
+2024 Q1 climax through Q2 range/retreat. Expected regime shift: ETH $4100 peak
+(PPO_132) compressing down to $3000-$3800 range (PPO_133-136).
+
+Recent profits (PPO_132-136): 23.92, 2.47, 1.59, 2.68, 0.83 -- avg 6.30
+
+| Window | Profit | Market context |
+|--------|--------|----------------|
+| PPO_132 | **23.92** | ETH $4100 -- Q1 ETF rally climax (peak) |
+| PPO_133 | 2.47 | Transition to Q2 |
+| PPO_134 | 1.59 | 2024 Q2 pullback begins |
+| PPO_135 | 2.68 | Range consolidation |
+| PPO_136 | **0.83** | Q2 range-bound (low) |
+
+Health checks at PPO_136:
+
+| Check | Status | Value | Note |
+|-------|--------|-------|------|
+| Reward trend | **FAIL** | -28.3% | Expected regime shift, NOT learning failure |
+| Liquidation rate | OK | 4.5% (1/22) | Healthy |
+| Win rate | OK | 42.9% (9W/12L) | Small PPO_136 env[0] sample |
+| Policy collapse | WARN | Neutral=63% | Healthy caution in range market |
+| Value loss | WARN | 1.45x | Model recalibrating new regime |
+| Entropy | OK | **70% retained** | **Up from 64% at PPO_131**, re-exploring |
+| Entropy trend | OK | +3.3pp | Exploration recovering |
+| Invalid actions | WARN | 21.4% | Stable exploration cost |
+| Approx KL | OK | mean=0.0095 | Normal |
+| Clip fraction | OK | mean=0.093 | Normal |
+| Sample size | WARN | 276 env[0] | Multiproc aggregated still large |
+| Profit trend | OK | avg=6.30 | **All 5 windows positive** |
+| Explained variance | OK | 0.625 | Predictive (down from 0.80 Q1) |
+| Long/Short bias | OK | 35 entries | Insufficient for check |
+| Summary | | **9 OK, 4 WARN, 1 FAIL** | |
+
+Interpretation:
+
+1. **Generalization test passing so far.** Profits compressed from avg 9.16 to
+   6.30 -- still positive through bull->range transition. v1 went bankrupt on
+   bear markets; v2 holds positive.
+
+2. **Reward FAIL is regime-driven.** Structural ep_rew_mean includes hold
+   penalties across full episode. Smaller price moves in range -> smaller
+   positive holding rewards but similar penalty floor -> net decline.
+
+3. **Entropy rising (64%->70%)** while in new regime = model actively
+   re-exploring rather than stuck. Healthy adaptation signature.
+
+4. **Neutral=63% WARN** is actually correct behavior in range market
+   (fewer valid trending opportunities -> more waiting is optimal).
+
+5. **Value loss rising (1.32x->1.45x)** = value function less confident on
+   new regime but still predictive (explained variance 0.625).
+
+Training rate slowed: 14/day (early windows) -> **5/day** (mid-cycle).
+Revised completion estimate: **2026-04-27 to 2026-05-09**.
+
+Next checkpoint: PPO_140-145 (2024 Q3). Watch for:
+- Profit sustaining positive through deeper Q3 range
+- Neutral% stabilizing (not climbing above 75%)
+- Value function re-converging on new regime
