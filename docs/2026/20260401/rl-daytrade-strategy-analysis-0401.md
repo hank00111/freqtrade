@@ -1605,3 +1605,66 @@ Next checkpoint: PPO_140-145 (2024 Q3). Watch for:
 - Profit sustaining positive through deeper Q3 range
 - Neutral% stabilizing (not climbing above 75%)
 - Value function re-converging on new regime
+
+### 11.6 PPO_143 checkpoint (2026-04-19) -- model adapting to Q2 regime
+
+Training advanced 7 windows from PPO_136 (~1 day). Rate recovered to ~7/day.
+PPO_139-143 cover 2024 Q2 end (ETH ~$3000-$3800 range, pullback from Q1 peak).
+
+Recent profits (PPO_139-143): 19.42, 1.82, 0.92, 10.05, 7.07 -- avg 7.86
+
+| Window | Profit | Observation |
+|--------|--------|-------------|
+| PPO_139 | **19.42** | Trend capture success |
+| PPO_140 | 1.82 | Consolidation |
+| PPO_141 | 0.92 | Low opportunity window |
+| PPO_142 | 10.05 | Trend capture success |
+| PPO_143 | 7.07 | Q2 end steady |
+
+Health checks at PPO_143:
+
+| Check | Status | Value | Change from PPO_136 |
+|-------|--------|-------|---------------------|
+| Reward trend | FAIL | -31.3% | Unchanged structural |
+| Liquidation rate | OK | 0.3% (1/296) | Improved (4.5% -> 0.3%) |
+| Win rate | OK | **55.6%** (164W/131L) | **+12.7pp from 42.9%** |
+| Policy collapse | WARN | Neutral=62% | Stable |
+| Value loss | WARN | **1.12x** | **Improved from 1.45x** |
+| Entropy retained | OK | 69% | Stable |
+| Entropy trend | OK | +0.7pp | Stable |
+| Invalid actions | WARN | 20.9% | Stable |
+| Approx KL | OK | 0.0107 | Normal |
+| Clip fraction | OK | 0.107 | Normal |
+| Sample size | **OK** | 3377 env[0] | **Resolved from WARN (276)** |
+| Profit trend | OK | avg **7.86** | **+25% from 6.30** |
+| Explained variance | OK | 0.513 | Down from 0.625 but OK |
+| **Long/Short bias** | **WARN** | **65% Short (259L/488S)** | **New WARN** |
+| Summary | | **9 OK, 4 WARN, 1 FAIL** | Same overall shape |
+
+Short bias analysis:
+
+2024 Q2 ETH trended from $4100 peak to $3000 bottom. Short bias 65% reflects
+correct directional call in declining market, evidenced by:
+- 55.6% win rate (higher than Q1 rally peak 51.7%)
+- All 5 windows positive (avg 7.86)
+- Winning trades mostly on short side = trading with regime
+
+This is NOT policy drift or bias lock-in. Monitor if Short% exceeds 70% into
+Q4 2024 rebound (2024-10 onwards ETH recovered) -- that would indicate
+overfit to Q2 direction.
+
+Adaptation signatures:
+
+1. **Value loss 1.45x -> 1.12x**: Value function converged on Q2 regime.
+   Model no longer seeing new territory.
+2. **Win rate 42.9% -> 55.6%**: Trade quality improved. Higher than Q1 ATH.
+3. **Liquidation 4.5% -> 0.3%**: Risk management normalized.
+4. **Sample size 276 -> 3377**: Training stabilized, more actions per window.
+
+Training rate: 5/day (at PPO_136) -> **7/day** (at PPO_143). Acceptable
+mid-cycle pace. Revised ETA: **2026-04-27 to 2026-05-01**.
+
+Next checkpoint: PPO_150-155 (2024 Q3 / Aug 2024 flash crash). Watch for:
+- ETH 2024-08-05 flash crash to $2100 -- profit through extreme volatility?
+- Short bias behavior at regime reversal
+- Liquidation rate under stress
