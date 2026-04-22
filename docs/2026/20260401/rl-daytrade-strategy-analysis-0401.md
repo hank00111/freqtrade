@@ -1752,3 +1752,133 @@ Next checkpoint: PPO_155-160 (2024 Q4, ETH $2400 -> $4000 rally). Watch for:
 - Explained variance holding above 0.7
 - Value loss remaining in-window decreasing
 - Profit capture on large trend moves (expect some windows > 15)
+
+### 11.8 PPO_163 checkpoint (2026-04-22) -- post cache-fix, low-opportunity regime
+
+#### Incident: cache-hit feature mismatch (2026-04-20 ~ 04-21)
+
+After PPO_149 completed, iter 25 of the backtest loop halted with:
+`OperationalException: Trying to access pretrained model with identifier
+but found different features furnished by current strategy`.
+
+Root-cause chain:
+
+1. **Upstream commit 89ef31b38 (2025-08-05)** changed save semantics for
+   `dk.data["training_features_list"]` from post-pipeline
+   (`list(dk.data_dictionary["train_features"].columns)`) to pre-pipeline
+   raw (`dk.training_features_list`). This was merged into dev/personal on
+   2026-04-17 via the upstream-reset commit 92b81dda6.
+2. **Local diagnostic patch 99a488c6a (2026-02-28)** that logged feature
+   diffs and used `sorted()` comparison was LOST during the same upstream
+   reset.
+3. **Stale pre-merge prediction files**: 54 `cb_eth_*_prediction.feather`
+   files from the original 2026-04-08 run remained in the
+   `backtesting_predictions/` folder with pre-merge metadata semantics.
+4. **Cache-hit feature check path** at `freqai_interface.py:332-337` runs
+   `use_strategy_to_populate_indicators(dataframe.tail(1))` to build the
+   current feature list for comparison. This 1-row path produces features
+   in a DIFFERENT ORDER than the training path's full-dataframe run.
+5. **Strict list comparison** at `freqai_interface.py:527`
+   (`dk.training_features_list != dk.data["training_features_list"]`)
+   raises on order-only differences.
+
+Fix sequence:
+
+| Step | Action | Result |
+|------|--------|--------|
+| 1 | Deleted 54 stale prediction files (ts >= 1668556800) | iter 1 cache still failed |
+| 2 | Verified metadata feature lists identical (SHA 8fc414e46cf0) across iter 1 / 24 / 25 / 26 | proves set equality, diff is order-only |
+| 3 | Re-applied local patch 99a488c6a at `freqai_interface.py:527`: sorted() comparison + set-diff log | Training resumed from iter 25 without any mismatch log lines -> confirmed order-only diff |
+
+Patch diff:
+
+```python
+if sorted(dk.training_features_list) != sorted(dk.data["training_features_list"]):
+    strat_set = set(dk.training_features_list)
+    saved_set = set(dk.data["training_features_list"])
+    only_in_strat = strat_set - saved_set
+    only_in_saved = saved_set - strat_set
+    logger.warning(
+        f"Feature mismatch debug: "
+        f"strategy={len(dk.training_features_list)}, "
+        f"saved={len(dk.data['training_features_list'])}. "
+        f"Only in strategy: {only_in_strat}. "
+        f"Only in saved: {only_in_saved}."
+    )
+    raise OperationalException(...)
+```
+
+Patch must be re-applied after any future upstream merge.
+
+#### Training health (PPO_163/199 = 82%, 29% of current window complete)
+
+Training resumed 2026-04-21 and advanced 14 PPO runs in ~1.5 days
+(~7/day). PPO_163 is still running (286/989 iterations).
+
+Recent profits (PPO_159-163): 11.06, 5.22, 0.80, 1.18, 1.29 -- avg **3.91**
+
+| Window | Profit | Profitable / Loss exits | exit_pnl_last | Neutral% | Sample (env[0]) |
+|--------|--------|-------------------------|---------------|----------|-----------------|
+| PPO_159 | **11.06** | 389 / 469 | +0.024 | 66% | 11162 |
+| PPO_160 | 5.22 | 329 / 378 | +0.011 | 70% | 9609 |
+| PPO_161 | 0.80 | 390 / 685 | +0.021 | 67% | 13000 |
+| PPO_162 | 1.18 | 22 / 33 | -0.002 | 74% | 871 |
+| PPO_163 | 1.29 | 122 / 192 | +0.003 | 78% | 5962 (running) |
+
+Health checks at PPO_162 (latest complete):
+
+| Check | Status | Value | Change from PPO_149 |
+|-------|--------|-------|---------------------|
+| Reward trend | OK | +64.4% | stable OK |
+| Liquidation rate | OK | 1.8% (1/56) | +1.6pp (small sample) |
+| Win rate | **WARN** | 40.0% (22W/33L) | -8.6pp (PPO_162 tiny sample) |
+| Policy collapse | **WARN** | Neutral=74% | +23pp -- see regime analysis |
+| Value loss | OK | 0.95x | +0.06x (still decreasing) |
+| Entropy retained | OK | 52% | -19pp (still healthy) |
+| Invalid actions | **WARN** | 13.3% | **improved from FAIL 26.1%** |
+| Approx KL | OK | 0.0083 | stable |
+| Clip fraction | OK | 0.071 | -0.030 (more stable updates) |
+| Sample size | **WARN** | 871 env[0] | -4000 -- low-opportunity window |
+| Profit trend | OK | avg 3.91 | -3.94 |
+| Explained variance | OK | 0.664 | -0.160 (still predictive) |
+| Long/Short bias | OK | 44%L/56%S | balanced maintained |
+| Summary | | **10 OK, 4 WARN, 0 FAIL** | -3 OK, +4 WARN, -1 FAIL |
+
+Interpretation:
+
+1. **All 4 WARNs trace to small env[0] sample (871) in PPO_162**. This is
+   not policy drift -- the episode on that window genuinely had fewer
+   actions (ep_len_mean 9254 vs PPO_149's 12170). Multiproc averages are
+   healthy; env[0] sampling amplifies noise.
+
+2. **Neutral% climbing 66% -> 78% across PPO_159-163** reflects regime
+   shift to low-opportunity. Model is selecting fewer trades, which is
+   correct behavior when clear signals are absent.
+
+3. **Invalid actions improved FAIL -> WARN (26.1% -> 13.3%)** -- a genuine
+   improvement. Higher Neutral% means fewer in-position entry attempts.
+
+4. **All 5 windows still positive profit**. No signs of overfitting to
+   prior regime or policy collapse. Explained variance 0.664 shows value
+   function still predictive.
+
+5. **Value loss 0.89x -> 0.95x** slight increase but still in-window
+   decreasing. Model absorbing new regime information normally.
+
+Market context (~2024 Q4 / 2025 Q1):
+
+- ETH $3000-$4000 consolidation after Q4 rally
+- Lower volatility -> fewer clear entry signals
+- Model correctly adopts selective trading (rising Neutral%)
+- PPO_159's 11.06 profit likely captured a localized trend burst
+
+Training rate: **~7 windows/day** post-fix (matching pre-bug mid-cycle
+rate). Cache-bug cost ~0.5 day.
+
+Revised ETA: **2026-04-27 to 2026-04-28** (36 PPO runs remaining).
+
+Next checkpoint: PPO_170-175 (~1 day from now). Watch for:
+- Neutral% falling below 70% if opportunities resume
+- env[0] sample recovering above 3000
+- Any policy collapse risk if Neutral% stays > 80%
+

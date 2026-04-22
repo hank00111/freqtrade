@@ -524,7 +524,18 @@ class IFreqaiModel(ABC):
                    current coin/bot loop
         """
 
-        if dk.training_features_list != dk.data["training_features_list"]:
+        if sorted(dk.training_features_list) != sorted(dk.data["training_features_list"]):
+            strat_set = set(dk.training_features_list)
+            saved_set = set(dk.data["training_features_list"])
+            only_in_strat = strat_set - saved_set
+            only_in_saved = saved_set - strat_set
+            logger.warning(
+                f"Feature mismatch debug: "
+                f"strategy={len(dk.training_features_list)}, "
+                f"saved={len(dk.data['training_features_list'])}. "
+                f"Only in strategy: {only_in_strat}. "
+                f"Only in saved: {only_in_saved}."
+            )
             raise OperationalException(
                 "Trying to access pretrained model with `identifier` "
                 "but found different features furnished by current strategy. "
