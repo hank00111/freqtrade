@@ -1882,3 +1882,105 @@ Next checkpoint: PPO_170-175 (~1 day from now). Watch for:
 - env[0] sample recovering above 3000
 - Any policy collapse risk if Neutral% stays > 80%
 
+### 11.9 PPO_171 checkpoint (2026-04-23) -- stable post cache-fix, FAIL is metric artifact
+
+Training advanced 8 PPO runs in ~1 day since PPO_163. No further
+feature-mismatch incidents -- the `sorted()` patch at
+`freqtrade/freqai/freqai_interface.py:527` (committed in 562faebb0) is
+holding. Latest complete window is PPO_170; PPO_171 is at 419/989 iter
+(42% of current window).
+
+#### Training health (PPO_171/199 = 86%)
+
+Recent profits (PPO_167-171): 0.87, 6.08, 4.58, 4.10, 2.27 -- avg **3.58**
+
+| Window | Profit | Profitable / Loss exits | exit_pnl_last | Neutral% | Sample (env[0]) |
+|--------|--------|-------------------------|---------------|----------|-----------------|
+| PPO_167 | 0.87 | 7 / 16 | -0.004 | -- | 225 (tiny) |
+| PPO_168 | **6.08** | 320 / 322 | -0.022 | -- | 7983 |
+| PPO_169 | 4.58 | 333 / 410 | +0.015 | -- | 7727 |
+| PPO_170 | 4.10 | 219 / 268 | -0.005 | 68% | 6222 |
+| PPO_171 | 2.27 | 155 / 192 | -0.008 | -- | 4330 (running) |
+
+Health checks at PPO_170 (latest complete):
+
+| Check | Status | Value | Change from PPO_163 |
+|-------|--------|-------|---------------------|
+| Reward trend | **FAIL** | -89.5% | -- |
+| Liquidation rate | OK | 0.2% (1/488) | -1.6pp (recovered) |
+| Win rate | OK | 45.0% (219W/268L) | +5pp |
+| Policy collapse | **WARN** | Neutral=68% | **-4pp (improved)** |
+| Value loss | **WARN** | 1.01x | +0.06x (edge case pressure) |
+| Entropy retained | OK | 64% | +12pp |
+| Invalid actions | **WARN** | 16.0% | +2.7pp (stable water level) |
+| Approx KL | OK | 0.0105 | +0.002 |
+| Clip fraction | OK | 0.098 | +0.027 |
+| Sample size | OK | 6222 env[0] | **+5351 (recovered from low-opportunity)** |
+| Profit trend | OK | avg 3.58 | -0.33 |
+| Explained variance | **OK** | **0.877** | +0.213 (very strongly predictive) |
+| Long/Short bias | OK | 51%L/49%S | balanced maintained |
+| Entropy trend | OK | -1.5pp (63% -> 62%) | stable |
+| Summary | | **10 OK, 3 WARN, 1 FAIL** | -1 WARN, +1 FAIL (artifact) |
+
+Interpretation:
+
+1. **FAIL is a metric artifact, not learning degradation**. SB3's
+   `ep_rew_mean` is cumulative episode reward. Episode length grew from
+   5095 -> 7234 across PPO_167-171, so cumulative negative reward scales
+   proportionally. `total_profit` is positive every window (all 5 > 0.8).
+   Explained variance 0.877 shows the value function predicts returns
+   accurately. Real learning health is strong.
+
+2. **Neutral% 68% at PPO_170 is an IMPROVEMENT from PPO_163's 74%**. Model
+   is trading more actively as the regime offers slightly better
+   opportunities. Still within HQT (High-Quality Trading) zone (60-80%).
+
+3. **Value loss 1.01x is an edge case**. Health threshold triggers at
+   >1.0x in-window. Within-window movement is trivial (33.51 -> 33.88).
+   Combined with explained variance 0.877, value function is fine.
+
+4. **Invalid actions 16.0%** is the long-term stable water level for this
+   codebase since v2 Phase 1. Not fixable without risking regression --
+   see Section 11.7 Invalid Actions FAIL analysis.
+
+5. **Sample size 6222 vs PPO_163's 871** confirms PPO_162's small sample
+   was a local anomaly, not a training problem. env[0] coverage is
+   healthy again.
+
+6. **Explained variance 0.877** is among the highest of v2 training --
+   value function is strongly predictive at current window.
+
+#### Cross-checkpoint comparison
+
+| Metric | PPO_149 | PPO_163 | PPO_170 | Trend |
+|--------|---------|---------|---------|-------|
+| Progress | 75% | 82% | 86% | +4pp |
+| Avg profit (5 windows) | 7.85 | 3.91 | 3.58 | Regime softening |
+| Neutral% | 51% | 74% | 68% | U-shape, recovering |
+| Win rate | 48.6% | 40.0% | 45.0% | Recovering |
+| Liquidation % | 0.2% | 1.8% | 0.2% | Sample artifact cleared |
+| Explained variance | 0.824 | 0.664 | **0.877** | Peak |
+| Sample size (env[0]) | 4862 | 871 | 6222 | Recovered |
+| Invalid % | 26.1% FAIL | 13.3% WARN | 16.0% WARN | Stable WARN |
+| Summary | 13/0/1 | 10/4/0 | 10/3/1 | -- |
+
+#### Market regime (windows ~161-175)
+
+Windows 161-175 cover approximately 2025 Q1 late consolidation
+(~$3000-$4000 ETH range). Volatility lower than Q4 rally, but signals
+are re-emerging (avg profit 3.58 stable, Neutral% declining from peak
+78%). Upcoming windows should cover 2025 Q2 (Trump tariff era) where
+volatility should increase.
+
+Training rate: **~7-8 windows/day** sustained, no interruptions since
+cache-fix patch.
+
+Revised ETA: **2026-04-27 to 2026-04-28** (unchanged, 28 PPO runs
+remaining).
+
+Next checkpoint: PPO_180-185 (~1-1.5 days from now). Watch for:
+- Volatility surge if entering 2025 Q2 Trump tariff period
+- Neutral% drop below 65% if opportunities resume
+- Avg profit recovery toward 5+ range if regime switches
+- Value loss stabilization back below 1.0x
+
