@@ -1984,3 +1984,122 @@ Next checkpoint: PPO_180-185 (~1-1.5 days from now). Watch for:
 - Avg profit recovery toward 5+ range if regime switches
 - Value loss stabilization back below 1.0x
 
+### 11.10 PPO_178 checkpoint (2026-04-24) -- high-volatility regime, entropy trend FAIL (specialization)
+
+Training advanced 7 PPO runs in ~1 day since PPO_171. Model entered
+high-volatility regime (likely 2025 Q2 Trump tariff era) with strong
+profit recovery. However, entropy started a real cross-window decline --
+this FAIL is substantively different from PPO_171's metric artifact.
+
+#### Training health (PPO_178/199 = 89%)
+
+Recent profits (PPO_174-178): 6.26, 6.92, 5.66, 1.13, 3.28 -- avg **4.65**
+**+30% recovery vs PPO_171's 3.58**. All 5 windows positive.
+
+| Window | Profit | Profitable / Loss exits | exit_pnl_last | exit_reward_last | Sample (env[0]) |
+|--------|--------|-------------------------|---------------|------------------|-----------------|
+| PPO_174 | 6.26 | 297 / 312 | **+0.094** | **6.72** | 6923 |
+| PPO_175 | **6.92** | 300 / 299 | -0.019 | -1.0 | 7559 |
+| PPO_176 | 5.66 | 183 / 151 | +0.050 | **4.49** | 4758 |
+| PPO_177 | 1.13 | 27 / 43 | -0.003 | -1.0 | 583 (tiny) |
+| PPO_178 | 3.28 | 245 / 315 | **+0.100** | **7.01** | 8317 |
+
+Large winning exits returning: exit_reward 6.72, 4.49, 7.01 on
+PPO_174/176/178. exit_pnl peaks +0.094, +0.100 confirm substantial entry/
+exit spreads captured by the model.
+
+Health checks at PPO_178 (latest complete):
+
+| Check | Status | Value | Change from PPO_171 |
+|-------|--------|-------|---------------------|
+| Reward trend | **OK** | +22.3% | **recovered from FAIL** |
+| Liquidation rate | OK | 0.2% (1/561) | stable |
+| Win rate | OK | 43.8% (245W/315L) | -1.2pp |
+| Policy collapse | **WARN** | Neutral=73% | +5pp (still HQT) |
+| Value loss | **WARN** | 1.29x | +0.28x (real rise, not edge case) |
+| Entropy retained | OK | 50% | -14pp (right at threshold) |
+| Entropy trend | **FAIL** | -17.1pp (67%->50%) | **new real FAIL, not artifact** |
+| Invalid actions | **WARN** | 13.7% | -2.3pp (improvement) |
+| Approx KL | OK | 0.0098 | -0.0007 |
+| Clip fraction | OK | 0.089 | -0.009 |
+| Sample size | OK | 8317 env[0] | +2095 |
+| Profit trend | OK | avg 4.65 | **+30% recovery** |
+| Explained variance | OK | 0.708 | -0.17 (still predictive) |
+| Long/Short bias | OK | 45%L/55%S | slight Short tilt |
+| Summary | | **10 OK, 3 WARN, 1 FAIL** | FAIL swapped category |
+
+Interpretation:
+
+1. **Entropy FAIL is specialization, not collapse**. This is a
+   fundamentally different FAIL from PPO_171:
+   - PPO_171 FAIL: `ep_rew_mean` cross-window metric artifact (cumulative
+     reward scales with episode length)
+   - PPO_178 FAIL: Real `entropy_loss` cross-window decline (-17.1pp)
+
+   Evidence that entropy drop is benign specialization:
+   - Profit RECOVERING (+30%) while entropy drops
+   - Large winning exits returning (exit_reward 7.01)
+   - Neutral% rise mild (+5pp), still in HQT band
+   - Long/Short still balanced (45/55)
+   - Sample size healthy (8317)
+
+2. **Value loss 1.29x is real in-window rise**. Previous checkpoint's
+   1.01x was edge-case compression; this is genuine value function
+   adaptation to new regime. Explained variance 0.708 confirms value
+   function still predictive despite the rise.
+
+3. **Neutral% 73% within HQT band (60-80%)**. Rising selectivity as
+   model learns when opportunities are real vs when to wait. Combined
+   with profit recovery, this is correct behavior.
+
+4. **Reward trend FAIL -> OK recovery**. `ep_rew_mean` -3284.68 ->
+   -2551.77 (+22.3%). Metric back within thresholds -- episode length
+   stabilized around 8500-10000 candles.
+
+5. **PPO_177 small sample (583 env[0])** is a local anomaly, not a
+   training problem. Other windows 4758-8317 are healthy.
+
+#### Cross-checkpoint comparison
+
+| Metric | PPO_149 | PPO_163 | PPO_170 | PPO_178 | Trend |
+|--------|---------|---------|---------|---------|-------|
+| Progress | 75% | 82% | 86% | 89% | +3pp |
+| Avg profit (5 windows) | 7.85 | 3.91 | 3.58 | **4.65** | U-shape recovery |
+| Neutral% | 51% | 74% | 68% | 73% | High-band stable |
+| Win rate | 48.6% | 40.0% | 45.0% | 43.8% | Stable |
+| Liquidation % | 0.2% | 1.8% | 0.2% | 0.2% | Stable |
+| Explained variance | 0.824 | 0.664 | **0.877** | 0.708 | Post-peak |
+| Entropy retained | 71% | 52% | 64% | **50%** | Declining (specialization) |
+| Value loss | 0.89x | 0.95x | 1.01x | **1.29x** | Real pressure |
+| Sample size (env[0]) | 4862 | 871 | 6222 | 8317 | Healthy |
+| Invalid % | 26.1% FAIL | 13.3% WARN | 16.0% WARN | 13.7% WARN | Stable WARN |
+| Summary | 13/0/1 | 10/4/0 | 10/3/1 | 10/3/1 | -- |
+
+#### Market regime (windows ~172-188)
+
+Training entered what appears to be 2025 Q2 Trump tariff era volatility:
+- Large winning exits returning (exit_reward 6.72, 4.49, 7.01)
+- exit_pnl peaks at 1% of base price (vs previous 0.3-0.5%)
+- Profit recovery +30% vs low-opportunity regime
+- Slight Short tilt (55%) consistent with tariff-induced downward pressure
+
+Training rate: **~7 windows/day** sustained. ETA tightened.
+
+#### Revised ETA: 2026-04-26 to 2026-04-27 (tightened by 1 day)
+
+21 PPO runs remaining at ~7/day.
+
+#### Decision threshold for next checkpoint (PPO_185-190)
+
+Entropy and policy collapse are now the primary watch metrics:
+
+- **Continue training** if: entropy retained > 40% AND Neutral% < 80%
+- **Consider rollback** if: entropy < 40% OR Neutral% > 80%
+- Rollback target: PPO_170-175 checkpoint (entropy 64%, profit 3.58, clean
+  generalization vs specialization tradeoff)
+
+Additional watch points for PPO_185-190:
+- Value loss: if persistently > 2.0x, adjust `learning_rate`
+- exit_reward: continued large wins (> 5.0) confirm regime capture
+- Long/Short balance: drift below 40% either side would signal regime lock-in
+
