@@ -2103,3 +2103,152 @@ Additional watch points for PPO_185-190:
 - exit_reward: continued large wins (> 5.0) confirm regime capture
 - Long/Short balance: drift below 40% either side would signal regime lock-in
 
+### 11.11 PPO_189 Checkpoint (2026-04-26, 95% complete)
+
+**Status: 10 OK / 3 WARN / 1 FAIL** (window 189 of 199, 95%)
+
+Training advanced 11 windows in ~2 days since PPO_178. Now in final 5% of
+training data (2026 Q1 ~ 03/25). The PPO_178 entropy specialization concern
+self-resolved: entropy retained 47% -> 61% (+14pp). Reward FAIL returned, but
+it's the same metric artifact as PPO_171 (ep_len-driven), not a real signal.
+
+#### Per-window metrics
+
+| Window | total_profit | ep_len | entropy_last | profitable | loss | win% |
+|--------|-------------|--------|--------------|-----------|------|------|
+| PPO_185 | 1.25 | 6506 | -0.79 | 267 | 415 | 39% |
+| PPO_186 | 1.94 | 9945 | -0.66 | 112 | 162 | 41% |
+| PPO_187 | 1.78 | 9587 | -0.73 | 90 | 127 | 41% |
+| PPO_188 | 1.00 | 9310 | -0.84 | 345 | 504 | 41% |
+| PPO_189 | 3.14 | 10876 | -0.83 | 475 | 715 | 40% |
+
+avg profit **1.82** -- all 5 windows positive. Range 1.00~3.14.
+**-61% vs PPO_178's 4.65**.
+
+#### Health checks
+
+| Check | Status | Detail |
+|-------|--------|--------|
+| reward_trend | **FAIL** | -1701.11 -> -3046.14 (-79.1%) -- metric artifact |
+| liquidation_rate | OK | 0.1% (1/1191) |
+| win_rate | WARN | 39.9% (475W/715L) -- right at OK threshold |
+| policy_collapse | WARN | Neutral=66% [Exit=15%, L=9%, S=10%] -- improved -7pp |
+| value_loss | OK | 27.87 -> 17.14 (0.62x) -- in-window decreasing |
+| entropy_loss | OK | -1.37 -> -0.83 (61% retained) |
+| invalid_actions | WARN | 18.4% (2749/14964) |
+| approx_kl | OK | mean=0.0104, last=0.0137 |
+| clip_fraction | OK | mean=0.092, last=0.127 |
+| sample_size | OK | 14964 (largest of v2) |
+| profit_trend | OK | all 5 positive, avg 1.82 |
+| **entropy_trend** | **OK** | **58% -> 61% (+3.1pp)** -- recovered from PPO_178 -17pp FAIL |
+| explained_variance | OK | 0.794 |
+| long_short_bias | OK | 50%L/50%S (1414L/1433S) -- perfectly balanced |
+
+#### Reward FAIL is metric artifact (per-step calculation)
+
+```
+PPO_185: -1701 / 6506  = -0.261 reward/step
+PPO_189: -3046 / 10876 = -0.280 reward/step
+per-step decline = -7.3% (not -79.1%)
+```
+
+`ep_rew_mean` is cumulative -- when ep_len grows, magnitude scales linearly.
+ep_len stretched +67% (6506 -> 10876) because the agent waits longer in
+lower-opportunity periods. This is correct behavior, not learning failure.
+
+#### PPO_188 env[0] anomaly (multiproc sampling artifact)
+
+PPO_188 reports Neutral=4, Exit=1723, Long=742, Short=1 -- a single env[0]
+sample showing essentially no Neutral and no Short entries. This is almost
+certainly an env[0]-only artifact:
+
+- total_profit=1.00 (positive, normal)
+- profitable_exits 345/504 = 41% (normal win rate)
+- Surrounding windows all show normal Neutral 60-66%
+- L/S aggregate across 5 windows is 50/50 balanced
+
+If a single env had truly entered no-Neutral state, profit would be erratic
+and L/S aggregates would skew. They don't. Multiproc caveat (only env[0]
+sampled for custom action metrics) explains the spike cleanly.
+
+#### Cross-checkpoint comparison
+
+| Metric | PPO_149 | PPO_163 | PPO_171 | PPO_178 | PPO_189 | Trend |
+|--------|---------|---------|---------|---------|---------|-------|
+| Progress | 75% | 82% | 86% | 89% | **95%** | +6pp |
+| Avg profit (5w) | 7.85 | 3.91 | 3.58 | 4.65 | **1.82** | -61% from peak |
+| Neutral% | 51% | 74% | 68% | 73% | **66%** | Improved |
+| Win rate | 48.6% | 40.0% | 45.0% | 43.8% | **39.9%** | At threshold |
+| Liquidation % | 0.2% | 1.8% | 0.2% | 0.2% | **0.1%** | Best |
+| Explained variance | 0.824 | 0.664 | 0.877 | 0.708 | **0.794** | Stable |
+| Entropy retained | 71% | 52% | 64% | 50% | **61%** | **Recovered** |
+| Value loss | 0.89x | 0.95x | 1.01x | 1.29x | **0.62x** | Healthy |
+| Sample size (env[0]) | 4862 | 871 | 6222 | 8317 | **14964** | Largest |
+| ep_len_mean | ~5500 | ~5800 | ~6500 | ~7000 | **~10876** | +67% vs PPO_178 |
+| Invalid % | 26.1% FAIL | 13.3% W | 16.0% W | 13.7% W | **18.4% W** | Stable WARN |
+| Summary | 13/0/1 | 10/4/0 | 10/3/1 | 10/3/1 | **10/3/1** | -- |
+
+#### FAIL type interpretation matrix
+
+| Checkpoint | FAIL metric | Type | Real concern? | Action |
+|------------|-------------|------|---------------|--------|
+| PPO_171 | reward_trend | metric artifact (ep_len) | No | Continue |
+| PPO_178 | entropy_trend | real decline (-17pp) | Yes (specialization) | Watch |
+| **PPO_189** | **reward_trend** | **metric artifact (ep_len)** | **No** | **Continue to completion** |
+
+PPO_189 represents a self-corrected state: the entropy decline that flagged
+PPO_178 reversed naturally. Profit dropped, but stayed positive across all
+5 windows -- regime is harder, not model broken.
+
+#### Market regime (windows ~182-194)
+
+Final 5% of training data corresponds to **2026 Q1 ~ 03/25**:
+
+- Trump tariff policy now baseline (no longer surprise events)
+- Crypto volatility receded vs PPO_178's 2025 Q2 peak
+- Lower opportunity density: agent waits longer (ep_len 10876 vs 7000)
+- exit_reward all -1 across PPO_185-189 (no big wins like PPO_178's 7.01)
+- Profit floor held: minimum 1.00, all 5 positive
+
+Translation: model is correctly identifying the regime is harder and
+trading more selectively. It hasn't lost capability, just facing a
+period where setups are rarer.
+
+#### Training rate slowdown
+
+PPO_178 -> PPO_189: +11 windows in ~2 days = **~5.5 windows/day**
+(down from sustained ~7/day).
+
+Cause: ep_len_mean stretched 7000 -> 10876 candles. Each PPO iteration
+runs more environment steps before episode terminates. Wall-clock cost
+per iteration scales with ep_len.
+
+#### Revised ETA: 2026-04-27 to 2026-04-28
+
+10 PPO runs remaining at ~5.5/day = ~1.8 days.
+
+#### Decision: wait for completion + dual-checkpoint backtest
+
+No mid-training intervention. Training will complete naturally within ~2
+days. On completion (PPO_199), run dual-checkpoint comparison:
+
+1. **PPO_178** (peak in-sample profit 4.65, entropy 50%, possible
+   specialization)
+2. **PPO_189** (balanced 1.82 profit, entropy 61%, healthy generalization)
+
+Backtest both on out-of-sample period. The result decides which
+hypothesis is correct:
+
+- If PPO_178 wins OOS: specialization was regime mastery (keep PPO_178)
+- If PPO_189 wins OOS: specialization was overfitting (use PPO_189)
+- If both lose vs simple baseline: re-evaluate reward function
+
+#### Watch points for PPO_195-199
+
+- Entropy retained: stay > 50% (currently 61%)
+- Neutral%: stay < 75% (currently 66%)
+- Long/Short bias: stay 40-60% range (currently 50/50)
+- Win rate: not falling below 35% (currently 39.9%)
+- Value loss: not rising > 2.0x (currently 0.62x healthy)
+- If any breach, consider stopping at PPO_195 vs running to PPO_199
+
