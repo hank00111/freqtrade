@@ -2252,3 +2252,134 @@ hypothesis is correct:
 - Value loss: not rising > 2.0x (currently 0.62x healthy)
 - If any breach, consider stopping at PPO_195 vs running to PPO_199
 
+### 11.12 PPO_198 Checkpoint (2026-04-27, 99% complete, in-flight)
+
+**Status: 11 OK / 2 WARN / 1 FAIL** (window 198 of 199, PPO_198 12% in-flight)
+
+Training advanced 9 windows in ~1 day since PPO_189. PPO_198 still running
+(122/989 iter); latest_complete is PPO_197. One window remains before
+training completes naturally (~24-36h ETA).
+
+The summary improved from 10/3/1 to 11/2/1 (Invalid actions 18.4% -> 10.2%
+moved from WARN closer to OK), but **policy_collapse crossed 80% threshold
+into FAIL**. The model has become a super-selective trader.
+
+#### Per-window metrics
+
+| Window | total_profit | ep_len | entropy_last | profitable | loss | win% | actions (env[0]) |
+|--------|-------------|--------|--------------|-----------|------|------|------------------|
+| PPO_194 | 0.79 | 7644 | -0.57 | 3 | 7 | 30% | tiny (234 total) |
+| PPO_195 | 0.83 | 7017 | -0.56 | 40 | 71 | 36% | small (1644) |
+| PPO_196 | 1.05 | 6200 | -0.54 | 41 | 71 | 37% | medium (4008) |
+| PPO_197 | 3.88 | 9529 | -0.55 | 220 | 323 | 41% | large (11973) |
+| PPO_198* | 0.91 | 3114 | -0.52 | 11 | 28 | 28% | partial (1013) |
+
+*PPO_198 only 12% complete (122/989 iterations).
+
+avg profit **1.49** -- all 5 windows positive. Range 0.79~3.88.
+**-18% vs PPO_189's 1.82** but PPO_197 hit best of cluster (3.88).
+
+#### Health checks (latest_complete = PPO_197)
+
+| Check | Status | Detail |
+|-------|--------|--------|
+| reward_trend | OK | -1597 -> -812 (+49.1%) -- partly artifact (PPO_198 ep_len short) |
+| liquidation_rate | OK | 0.2% (1/544) |
+| win_rate | OK | 40.5% (220W/323L) -- recovered from PPO_189 39.9% WARN |
+| **policy_collapse** | **FAIL** | **Neutral=81% [Exit=9%, L=5%, S=5%]** -- crossed 80% threshold |
+| value_loss | OK | 21.6 -> 11.3 (0.52x) -- in-window decreasing |
+| entropy_loss | **WARN** | -1.37 -> -0.55 (40% retained) -- back into specialization |
+| invalid_actions | WARN | 10.2% (1225/11973) -- improved -8pp from PPO_189 |
+| approx_kl | OK | mean=0.0085, last=0.0048 |
+| clip_fraction | OK | mean=0.071, last=0.051 |
+| sample_size | OK | 11973 |
+| profit_trend | OK | all 5 positive, avg 1.49 |
+| entropy_trend | OK | 41% -> 38% (-3.4pp) cross-window stable |
+| explained_variance | OK | 0.859 -- highest since PPO_171 |
+| long_short_bias | OK | 50%L/50%S (597L/593S) |
+
+#### Policy collapse FAIL: super-selective, not dead
+
+PPO_197 action distribution at 80.7% Neutral crossed the 80% FAIL threshold.
+But this is qualitatively different from a dead/stuck policy. Evidence:
+
+- Sample size 11973 (real signal, not env[0] artifact)
+- Long/Short perfectly balanced (597L/593S = 50/50)
+- Invalid actions IMPROVED -8pp (18.4% -> 10.2%) -- model isn't reckless
+- profit on PPO_197 hit 3.88 (highest of recent cluster) -- when it trades,
+  it hits well
+- explained_variance 0.859 (highest since PPO_171) -- value function strong
+
+Translation: model converged to "trade rarely, trade well" alpha. The
+question is whether this is regime mastery (true alpha discovery) or
+overfit timidity in late-data low-opportunity regime.
+
+#### Cross-checkpoint comparison (full late-training arc)
+
+| Metric | PPO_171 | PPO_178 | PPO_189 | PPO_198 | Trend |
+|--------|---------|---------|---------|---------|-------|
+| Progress | 86% | 89% | 95% | **99%** | Near completion |
+| Avg profit (5w) | 3.58 | 4.65 | 1.82 | **1.49** | Continued decline |
+| Neutral% | 68% | 73% | 66% | **81%** | **FAIL crossed** |
+| Win rate | 45% | 43.8% | 39.9% | **40.5%** | Threshold edge |
+| Liquidation % | 0.2% | 0.2% | 0.1% | **0.2%** | Stable |
+| Explained variance | 0.877 | 0.708 | 0.794 | **0.859** | Recovered |
+| Entropy retained | 64% | 50% | 61% | **40%** | Re-specialization |
+| Value loss | 1.01x | 1.29x | 0.62x | **0.52x** | Most healthy |
+| Sample size | 6222 | 8317 | 14964 | **11973** | Healthy |
+| ep_len_mean | ~6500 | ~7000 | ~10876 | ~7980 | Shortened (less trading) |
+| Invalid % | 16.0% W | 13.7% W | 18.4% W | **10.2% W** | **Best, near OK** |
+| Summary | 10/3/1 | 10/3/1 | 10/3/1 | **11/2/1** | Improved |
+
+#### Specialization trajectory across training
+
+| Phase | PPO range | Entropy | Neutral% | Profit | Mode |
+|-------|-----------|---------|----------|--------|------|
+| Mid-training | PPO_149-163 | 52-71% | 51-74% | 3.91-7.85 | Active learner |
+| Pre-spec | PPO_167-171 | 64% | 68% | 3.58 | Stable |
+| Spec1 | PPO_174-178 | 50% | 73% | 4.65 | Aggressive specialization (high vol regime) |
+| Recovery | PPO_185-189 | 61% | 66% | 1.82 | Entropy recovery (low vol regime) |
+| **Spec2** | **PPO_194-198** | **40%** | **81%** | **1.49** | **Super-selective** |
+
+The model oscillated through two specialization waves. The first
+(PPO_178) coincided with high-volatility 2025 Q2. The second (PPO_198)
+coincided with low-volatility 2026 Q1. Same mechanic, opposite regime
+trigger -> suggests the model is regime-adaptive rather than overfitting
+to a single regime.
+
+#### Training rate accelerated
+
+PPO_189 -> PPO_198: +9 windows in ~1 day = **~9 windows/day** (up from
+~5.5/day). Cause: ep_len shortened from 10876 to 6200-9500 as policy
+became less active. Fewer trade entries -> shorter episodes -> faster
+PPO iterations.
+
+#### Revised ETA: 2026-04-27 evening to 2026-04-28 morning
+
+PPO_198 (88% remaining) + PPO_199 = ~8 hours wall-clock at current pace.
+
+#### Three-checkpoint OOS backtest plan
+
+On completion, run three checkpoints on identical OOS slice:
+
+1. **PPO_178** (peak profit 4.65, entropy 50%, Neutral 73%) -- aggressive
+   specialization, possible regime mastery
+2. **PPO_189** (balanced 1.82, entropy 61%, Neutral 66%) -- middle path,
+   entropy-healthy
+3. **PPO_199** (selective ~1.49, entropy ~40%, Neutral ~81%) -- final
+   super-selective state
+
+Decision matrix:
+
+| Winner | Implication | Action |
+|--------|-------------|--------|
+| PPO_178 wins | Aggressive specialization is true alpha | Use PPO_178, accept entropy risk |
+| PPO_189 wins | Middle path generalizes best | Use PPO_189, mid-training optimum |
+| PPO_199 wins | "Less is more" alpha is real | Use PPO_199, training found correct convergence |
+| All lose to baseline | Reward function or features insufficient | Redesign before next train |
+
+#### No mid-training intervention
+
+Last window away. Standard rule: do not modify a training within 1 window
+of completion. Wait, run OOS backtest, decide.
+
