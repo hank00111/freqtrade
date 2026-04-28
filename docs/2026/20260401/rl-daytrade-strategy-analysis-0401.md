@@ -2383,3 +2383,147 @@ Decision matrix:
 Last window away. Standard rule: do not modify a training within 1 window
 of completion. Wait, run OOS backtest, decide.
 
+### 11.13 PPO_205 Checkpoint (2026-04-28, training overshoot, in-flight)
+
+**Status: 9 OK / 4 WARN / 1 FAIL** (window 205, exceeded 0401 plan ~189 estimate)
+
+Training continued past the originally estimated 189 windows. PPO_205 still
+running (29% complete, 288/989 iter); latest_complete is PPO_204. Latest TB
+event timestamp is 2026-04-28 17:41 (active). Training process PID 66932
+running since 2026-04-21.
+
+The summary regressed from 11/2/1 (PPO_198) to 9/4/1: win_rate dropped
+into WARN, value_loss escalated to 1.83x WARN, invalid_actions rebounded
+to 12.1% WARN. policy_collapse improved from 81% FAIL back to 77% WARN,
+but entropy_trend FAIL re-emerged with -17.7pp drop.
+
+#### Per-window metrics
+
+| Window | total_profit | ep_len | entropy_last | profitable | loss | win% | actions (env[0]) |
+|--------|-------------|--------|--------------|-----------|------|------|------------------|
+| PPO_201 | 1.01 | 6671 | -0.75 | 94 | 131 | 42% | medium (3087) |
+| PPO_202 | 1.02 | 7042 | -0.70 | 164 | 255 | 39% | large (8330) |
+| PPO_203 | 0.83 | 6179 | -0.68 | 13 | 34 | 28% | tiny (758) |
+| PPO_204 | 1.05 | 6593 | -0.71 | 160 | 255 | 39% | large (7703) |
+| PPO_205* | 1.21 | 4222 | -0.50 | 102 | 165 | 38% | partial (7474) |
+
+*PPO_205 only 29% complete (288/989 iterations).
+
+avg profit **1.02** -- all 5 windows positive. Range 0.83~1.21.
+**-32% vs PPO_198's 1.49**, continuing the slide from PPO_178's 4.65 peak.
+
+#### Health checks (latest_complete = PPO_204)
+
+| Check | Status | Detail |
+|-------|--------|--------|
+| reward_trend | OK | -1721 -> -985 (+42.7%) -- partly artifact (PPO_205 ep_len short) |
+| liquidation_rate | OK | 0.2% (1/416) |
+| **win_rate** | **WARN** | **38.6% (160W/255L)** -- dropped below 40% OK threshold |
+| **policy_collapse** | **WARN** | **Neutral=77%** [Exit=12%, L=6%, S=4%] -- improved from PPO_198 81% FAIL |
+| **value_loss** | **WARN** | **23.9 -> 43.7 (1.83x)** -- approaching 2x FAIL threshold |
+| entropy_loss | OK | -1.37 -> -0.71 (52% retained, in-window) |
+| **invalid_actions** | **WARN** | **12.1% (934/7703)** -- rebounded from PPO_198 10.2% |
+| approx_kl | OK | mean=0.0077, last=0.0065 |
+| clip_fraction | OK | mean=0.063, last=0.098 |
+| sample_size | OK | 7703 (env[0]) |
+| profit_trend | OK | all 5 positive, avg 1.03 |
+| **entropy_trend** | **FAIL** | **54% -> 37% (-17.7pp)** -- second specialization wave deeper than PPO_178 |
+| explained_variance | OK | 0.585 -- noisier than PPO_198's 0.859 |
+| long_short_bias | OK | 60%L/40%S (499L/335S) -- slight Long tilt vs PPO_198's 50/50 |
+
+#### Entropy_trend FAIL: super-selective deeper, not collapsing
+
+Entropy retained dropped from 54% (PPO_201) to 37% (PPO_205*), the same
+-17pp magnitude as PPO_178's specialization but in opposite regime
+(low-vol 2026 Q1 vs high-vol 2025 Q2). Critical difference: PPO_178's
+specialization paid off (profit jumped to 4.65). This second wave is
+NOT paying off (profit compressed to 1.0).
+
+Evidence still favoring "specialization, not collapse":
+- All 5 windows positive (no negative profit)
+- L/S slightly tilted but not collapsed (60/40)
+- Sample size 7703 (real signal)
+- Liquidation rate stable 0.2%
+- exit_reward not pinned to floor (-1 to +10 distributed)
+
+Evidence the alpha is NOT improving:
+- Profit floor at ~1.0 across last 8+ windows (PPO_198-205)
+- Win rate now sub-40%
+- value_loss 1.83x suggests value function struggling
+
+Translation: the "trade rarely, trade well" hypothesis from PPO_198 has
+NOT been validated. Trade frequency is low but trade quality has not
+risen to compensate. The super-selective trader has settled into a
+modest 1.0-baseline rather than a 3-4x alpha.
+
+#### Cross-checkpoint comparison (extended late-training arc)
+
+| Metric | PPO_171 | PPO_178 | PPO_189 | PPO_198 | PPO_205* | Trend |
+|--------|---------|---------|---------|---------|----------|-------|
+| Avg profit (5w) | 3.58 | 4.65 | 1.82 | 1.49 | **1.02** | Continued decline |
+| Neutral% | 68% | 73% | 66% | 81% | **77%** | Off peak but elevated |
+| Win rate | 45% | 43.8% | 39.9% | 40.5% | **38.6% W** | Below 40% |
+| Liquidation % | 0.2% | 0.2% | 0.1% | 0.2% | **0.2%** | Stable |
+| Explained variance | 0.877 | 0.708 | 0.794 | 0.859 | **0.585** | Noisier |
+| Entropy retained | 64% | 50% | 61% | 40% | **37%** (or 52% in-window) | Spec2 deepens |
+| Value loss | 1.01x | 1.29x | 0.62x | 0.52x | **1.83x W** | Worst since PPO_178 |
+| Sample size | 6222 | 8317 | 14964 | 11973 | **7703** | Healthy |
+| ep_len_mean | ~6500 | ~7000 | ~10876 | ~7980 | ~6213 | Shortest |
+| Invalid % | 16.0% W | 13.7% W | 18.4% W | 10.2% W | **12.1% W** | Stable band |
+| Summary | 10/3/1 | 10/3/1 | 10/3/1 | 11/2/1 | **9/4/1** | Regression |
+
+#### Specialization trajectory updated
+
+| Phase | PPO range | Entropy | Neutral% | Profit | Mode |
+|-------|-----------|---------|----------|--------|------|
+| Mid-training | PPO_149-163 | 52-71% | 51-74% | 3.91-7.85 | Active learner |
+| Pre-spec | PPO_167-171 | 64% | 68% | 3.58 | Stable |
+| Spec1 | PPO_174-178 | 50% | 73% | 4.65 | Aggressive specialization (high vol) |
+| Recovery | PPO_185-189 | 61% | 66% | 1.82 | Entropy recovery (low vol) |
+| Spec2 | PPO_194-198 | 40% | 81% | 1.49 | Super-selective (FAIL crossed) |
+| **Spec2-late** | **PPO_201-205** | **37%** | **77%** | **1.02** | **Specialization sustained, alpha NOT realized** |
+
+The Spec2 phase is now over 12 windows (PPO_194 through PPO_205*). What
+PPO_198 looked like a temporary super-selective wave is the model's
+stable late-training regime. The entropy floor, Neutral% concentration,
+and profit baseline have all stabilized -- the model converged into this
+mode rather than passing through it.
+
+#### Training overshoot beyond plan
+
+0401 plan estimated ~189 windows from timerange 20220601-20260325. Actual
+window count is now 205+ (~+8% overshoot). Likely cause: sliding window
+stride was slightly shorter than estimated, accumulating more windows
+across the 4-year data range. Latest sub-train data start is 2024-03-12,
+so ~remaining 0-3 windows expected before training data exhaustion.
+
+#### Updated three-checkpoint OOS backtest plan
+
+On completion, run on identical OOS slice:
+
+1. **PPO_178** (peak profit 4.65, entropy 50%, Neutral 73%) -- aggressive
+   specialization in high-vol regime
+2. **PPO_189** (balanced 1.82, entropy 61%, Neutral 66%) -- middle path,
+   entropy-healthy
+3. **PPO_197** (individual peak 3.88, late-stage best-window) -- substitute
+   for original PPO_199 plan; the actual highest-profit late-training
+   single window
+4. **PPO_205-final** (super-selective 1.0, entropy 37%, Neutral 77%) --
+   final converged state
+
+Decision matrix update:
+
+| Winner | Implication | Action |
+|--------|-------------|--------|
+| PPO_178 wins | High-vol specialization is real alpha | Use PPO_178, regime-conditioned |
+| PPO_189 wins | Middle path generalizes best | Use PPO_189, accept lower in-sample peak |
+| PPO_197 wins | Late-training has alpha but variance | Use PPO_197, single-snapshot pick |
+| PPO_205 wins | Super-selective converged correctly | Use PPO_205, final model |
+| All lose to baseline | Reward/feature redesign needed | Halt, redesign before next train |
+
+#### Status
+
+Training within hours of natural completion. PPO_205 at 29% in-flight,
+sub-train data near 2024-03-12 (terminal). Wait for completion, then
+proceed to OOS backtest -- no mid-training intervention.
+
