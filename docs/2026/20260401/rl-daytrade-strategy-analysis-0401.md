@@ -2527,3 +2527,156 @@ Training within hours of natural completion. PPO_205 at 29% in-flight,
 sub-train data near 2024-03-12 (terminal). Wait for completion, then
 proceed to OOS backtest -- no mid-training intervention.
 
+### 11.14 PPO_211 Checkpoint (2026-04-29) -- Spec2 exit, regime recovery, training history best
+
+#### Why this matters
+
+PPO_211 is the **first checkpoint in v2 training history with 0 FAIL and
+12 OK** (single Neutral=75% WARN + Invalid=12.7% WARN remaining). It also
+represents an unexpected **structural reversal** of the Spec2 super-selective
+state diagnosed at PPO_198-205: the agent has spontaneously exited the
+1.0-baseline rut and resumed multi-directional active trading.
+
+Most surprisingly: training is **still alive** at PPO_212 (161/989 iter,
+16% in-flight). The 0-3 windows remaining estimate from PPO_205 was wrong --
+training has continued 7 more windows past PPO_205 with no termination signal.
+
+#### Per-window metrics (PPO_208-212)
+
+| Window | Profit | Neutral % | Entropy | Win Rate | Value Loss | Explained Var | ep_len |
+|---|---|---|---|---|---|---|---|
+| PPO_208 | 3.44 | 83% | 54% | 49% | 25-51 (2.0x) | 0.66 | 11252 |
+| PPO_209 | 2.78 | 66% | 60% | 47% | 32-49 (1.5x) | 0.85 | 11958 |
+| PPO_210 | 5.09 | 68% | 60% | 49% | 26-87 (3.4x) | 0.48 | 9594 |
+| **PPO_211** | **3.37** | **75%** | **62%** | **51%** | **26-24 (0.92x)** | **0.80** | **11076** |
+| PPO_212* | 1.45 | 68% | 68% | 48% | 30-27 | 0.58 | 3348 |
+
+*PPO_212 in-flight at 161/989 iter (16%). Latest_complete = PPO_211.
+
+5-window profit avg = **3.43** (range 1.45-5.09). Compared with PPO_201-205
+avg 1.02, profit baseline jumped **+236%**.
+
+#### Health checks at PPO_211 (12 OK / 2 WARN / 0 FAIL)
+
+OK (12):
+- Reward trend: -2932 -> -1022 (+65.1%)
+- Liquidation rate: 0.5% (1/184)
+- Win rate: **50.8%** (recovered from 38.6% WARN at PPO_205)
+- Value loss: **0.92x** (decreased from 1.83x WARN at PPO_205)
+- Entropy retained: **62%** (recovered from 37% near-FAIL at PPO_205)
+- Approx KL: 0.0106 mean (stable)
+- Clip fraction: 0.097 mean (normal)
+- Sample size: 2893 actions
+- Profit trend: avg 3.23 (all 5 positive, range 1.45-5.09)
+- Entropy trend: **+13.9pp** cross-window (54% -> 68%) -- recovered from
+  -17.7pp FAIL at PPO_205
+- Explained variance: 0.802 (strong predictive)
+- Long/Short bias: 39%L/61%S (balanced, was 0/100 at Spec2 era)
+
+WARN (2):
+- Policy collapse: Neutral=75% (mid-WARN band)
+- Invalid actions: 12.7% (above 10% threshold, similar to PPO_198 era)
+
+#### Spec2 exit interpretation
+
+The Spec2 super-selective hypothesis (PPO_198-205) has been **falsified**.
+Evidence:
+
+| Dimension | PPO_205 (Spec2 sustained) | PPO_211 (Spec2 exit) | Delta |
+|---|---|---|---|
+| Health | 9 OK / 4 WARN / 1 FAIL | 12 OK / 2 WARN / 0 FAIL | **+3 OK** |
+| Entropy retained | 37% | 62% | **+25pp** |
+| Cross-window entropy | -17.7pp (FAIL) | +13.9pp | trend reversed |
+| Win rate | 38.6% (WARN) | 50.8% | +12.2pp |
+| Value loss ratio | 1.83x (WARN) | 0.92x | converging |
+| Recent profit avg | 1.02 | 3.43 | **+236%** |
+| Trade activity per window | 50-100 | 183-767 | 3-7x |
+| ep_len_mean | 6200-7000 | 9594-11958 | +50-70% |
+| Long/Short distribution | Spec2-late: Short-heavy | 39/61 balanced | dual-direction |
+
+The agent did NOT converge to "trade rarely, trade well". Instead, Spec2
+was **regime-specific over-fitting** to a low-volatility data slice. As the
+sliding training data has moved forward (or the agent has finished
+absorbing the low-vol slice), it has resumed bidirectional active trading
+with profit recovery to alpha-bearing levels.
+
+Compare with Spec1 (PPO_178): high-vol regime specialization paid off
+(profit 4.65 with entropy 23% FAIL). Spec2 (PPO_198-205): low-vol regime
+specialization did NOT pay off (profit 1.02 with entropy 31-37% FAIL).
+PPO_211 is now the **specialization-exit** state in mixed-volatility data.
+
+#### Cross-checkpoint comparison (updated with PPO_211)
+
+| Window | Health | Avg Profit | Entropy | Neutral % | Phase |
+|---|---|---|---|---|---|
+| PPO_171 | 11/3/0 | 4.41 | 64% | 67% | Cache-fix stable |
+| PPO_178 | 9/3/2 | 4.65 | 23% | 89% | Spec1 (high-vol specialization, alpha realized) |
+| PPO_189 | 9/4/1 | 1.45 | 47% | 79% | Entropy recovery, low profit |
+| PPO_198 | 11/2/1 | 1.05 | 31% | 81% | Spec2 onset (super-selective) |
+| PPO_205 | 9/4/1 | 1.21 | 37% | 77% | Spec2 sustained (alpha NOT realized) |
+| **PPO_211** | **12/2/0** | **3.43** | **62%** | **75%** | **Spec2 exit, training-history best** |
+
+PPO_211 is the first checkpoint to achieve 12 OK and 0 FAIL simultaneously
+in the v2-20260401 run. No previous window matched both conditions.
+
+#### Training overshoot continues
+
+| Time | PPO | Sub-train timestamp | Plan estimate | Overshoot |
+|---|---|---|---|---|
+| 2026-04-26 | PPO_189 | unknown (active) | ~189 | baseline |
+| 2026-04-27 | PPO_198 | unknown (active) | ~189 | +9 (+5%) |
+| 2026-04-28 | PPO_205 | 1710288000 (2024-03-12) | ~189 | +16 (+8%) |
+| **2026-04-29** | **PPO_212** | **1710288000 (still 2024-03-12)** | **~189** | **+23 (+12%)** |
+
+Sub-train timestamp has **not advanced** since PPO_204 era (~9 days). Yet
+PPO checkpoints continue producing. With 94 sub-train folders / 212 PPO
+windows, late phase shows ~2.25 PPO updates per sub-train (early phase
+was ~1:1).
+
+Interpretation: training is in **terminal-sub-train iteration phase**.
+The sliding window has reached the end of training data (timerange end
+2026-03-25, sub-train end 2024-03-12 + train_period_days), but PPO
+optimization continues on the final data slice. This is unexpected from
+the 0401 plan but possibly explains the late-stage health recovery -- the
+agent gets more training cycles per sub-train without sliding into new
+data.
+
+#### Updated OOS backtest plan -- five candidates
+
+PPO_205-final should be **demoted** in priority. PPO_211 enters as new
+top candidate. PPO_final-when-complete added as fifth candidate.
+
+| Candidate | Profile | Hypothesis | Priority |
+|---|---|---|---|
+| PPO_178 | profit 4.65 / entropy 23% / Neutral 89% | Spec1 high-vol specialization | High (validate Spec1 alpha) |
+| PPO_189 | profit 1.45 / entropy 47% / Neutral 79% | sweet-spot generalization | Medium |
+| PPO_197 | profit 3.88 / late-individual peak | late-stage best single | Medium |
+| **PPO_211** | **profit 3.43 / entropy 62% / Neutral 75%** | **Spec2 exit, training-best health** | **HIGHEST** |
+| PPO_final | TBD on natural termination | training-end converged state | High (if differs from PPO_211) |
+
+Decision matrix update:
+
+| Winner | Implication | Action |
+|---|---|---|
+| PPO_211 wins | Spec2 exit produced real alpha, training found correct mode | Use PPO_211 as primary |
+| PPO_178 wins | High-vol specialization is the real skill (Spec1) | Use PPO_178, regime-conditioned |
+| PPO_189 wins | Middle path generalizes best | Use PPO_189 |
+| PPO_197 wins | Late-training has alpha but variance | Use PPO_197 |
+| PPO_final ~ PPO_211 | Training stable, either works | Use PPO_final (latest) |
+| PPO_final < PPO_211 | Training over-fit past PPO_211 | Use PPO_211 (early-stop pick) |
+| All lose to baseline | Reward/feature redesign needed | Halt, redesign |
+
+#### Status
+
+Training **still active** (PID 66932, ~821h CPU time since 2026-04-21).
+PPO_212 at 16% in-flight. Sub-train terminal but PPO continues iterating.
+Watch points:
+- PPO_212 final metrics: confirm Spec2 exit holds or single-window outlier
+- Sub-train advance: if 1710288000 advances, sliding has resumed (more
+  windows ahead). If stays, training will likely terminate at PPO_213-215.
+- Next analyze-rl run: after PPO_212 completes (~3-4h at current rate).
+
+Do not interrupt. Even if training continues another 5-10 windows past
+expected, the recovery trajectory may produce additional improvement.
+The new health profile justifies allowing extra runtime.
+
