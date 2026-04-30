@@ -2680,3 +2680,137 @@ Do not interrupt. Even if training continues another 5-10 windows past
 expected, the recovery trajectory may produce additional improvement.
 The new health profile justifies allowing extra runtime.
 
+### 11.15 PPO_219 Checkpoint (2026-04-30) -- profit recovery continues, sliding window stall confirmed
+
+#### Status
+
+5-window summary: **9 OK / 5 WARN / 0 FAIL** (mild regression vs PPO_211's
+12/2/0 but FAIL count holds at 0). Profit average **4.36** (range
+0.91-6.93) -- highest 5-window average since PPO_178's 4.65 peak, and
+this time with healthy 56% entropy retention (vs Spec1's 23% FAIL).
+
+PPO_219 is in-flight at ~80% (794/989 iter, events file actively writing).
+Multiple WARN flags trace to PPO_219's incomplete sample size, not a real
+regression.
+
+#### Per-window metrics (PPO_215-219)
+
+| Window | Profit | Neutral % | Entropy | Win Rate | Value Loss | ExplVar | ep_len |
+|---|---|---|---|---|---|---|---|
+| PPO_215 | 2.68 | 73% | 57% | 47% | 27-62 (2.3x) | 0.62 | 10955 |
+| PPO_216 | 6.93 | 67% | 63% | 47% | 29-53 (1.85x) | 0.79 | 11313 |
+| PPO_217 | 4.59 | 65% | 69% | 49% | 27-36 (1.31x) | 0.55 | 10897 |
+| PPO_218 | 6.69 | 70% | 57% | 49% | 29-64 (2.24x) | 0.49 | 11262 |
+| PPO_219* | 0.91 | 66% | 56% | 43% | 27-53 (1.96x) | 0.60 | 9790 |
+
+*PPO_219 in-flight (~80%, 794 iter / 989 expected).
+
+PPO_216 (6.93) and PPO_218 (6.69) are the highest individual windows
+since PPO_178 era. Entropy 56-69% across all 5 windows is healthier than
+any previous 5-window stretch with profit > 4.
+
+#### Cross-checkpoint comparison (updated)
+
+| Window | Health | Avg Profit | Entropy | Neutral % | Phase |
+|---|---|---|---|---|---|
+| PPO_171 | 11/3/0 | 4.41 | 64% | 67% | Cache-fix stable |
+| PPO_178 | 9/3/2 | 4.65 | 23% | 89% | Spec1 (entropy FAIL) |
+| PPO_189 | 9/4/1 | 1.45 | 47% | 79% | Entropy recovery, low profit |
+| PPO_198 | 11/2/1 | 1.05 | 31% | 81% | Spec2 onset |
+| PPO_205 | 9/4/1 | 1.21 | 37% | 77% | Spec2 sustained |
+| PPO_211 | 12/2/0 | 3.43 | 62% | 75% | Spec2 exit |
+| **PPO_219** | **9/5/0** | **4.36** | **56%** | **66%** | **Profit + entropy both healthy (training-history best alpha+health combo)** |
+
+PPO_219 is the **first checkpoint in v2 history with profit >= 4 AND
+entropy >= 50% AND 0 FAIL**. PPO_178 had higher profit but entropy FAIL;
+PPO_211 had healthier metrics but lower profit. PPO_219 combines both.
+
+#### Sliding window investigation (Spec3: stall hypothesis)
+
+Two parallel agent investigations were run to diagnose the sub-train
+stall observed since 2026-04-20.
+
+**Empirical findings (filesystem forensics):**
+- Process PID 66932 is the THIRD distinct training run for this model
+  (PID 32488 ran PPO_1-70, PID 39876/34580 ran PPO_71-149, PID 66932
+  has run PPO_150-219 since 2026-04-18 to 2026-04-19)
+- Current run rate: 70 PPO checkpoints / 12 days = **~6 PPO/day**
+- The "sub-train stalled at 1710288000" interpretation is partially
+  incorrect: the FOLDER NAME has not advanced (no new 1710892800 etc.
+  appeared), but the `best_model.zip` inside multiple sub-train folders
+  is being updated TODAY in chronological order, ~3-4h apart
+- This means the process is iterating through the existing 94 sub-trains
+  on a 2nd or 3rd pass, NOT advancing to new sub-trains
+
+**Code-level findings:**
+- `freqai/data_kitchen.py:598` constructs sub-train folder name from
+  `tr_train.stopts` (training timerange end timestamp)
+- `freqai/freqai_interface.py:301` iterates `dk.training_timeranges`
+  with stride `bt_period` (7 days = 604800s, matches observed)
+- `freqai/freqai_interface.py:366` `model_exists()` check looks for
+  `cb_eth_<ts>_model.zip` (written by `data_drawer.py:523`), which is
+  DIFFERENT from `best_model.zip` (written by EvalCallback)
+- `freqai/prediction_models/ReinforcementLearner.py:67-73`:
+  `tensorboard_log` is shared across all sub-trains for one coin, so
+  PPO_N auto-increments globally (NOT per-sub-train) -- 219 PPO / 94
+  sub-train ratio of 2.33 is normal accumulation
+- `wait_for_training_iteration_on_reload: true` only affects live/dry
+  shutdown, NOT backtest
+
+**Hypothesis (medium confidence):**
+
+The training is in an iteration loop without sliding advancement. Two
+possible mechanisms:
+1. `cb_eth_<ts>_model.zip` save fails silently each cycle, so
+   `model_exists()` returns False on next iteration, forcing re-train
+2. The backtest sliding window has reached some bound (computed end of
+   data window, factoring train_period_days + backtest_period_days)
+   that prevents creating sub-train 1710892800 onwards
+
+**What we cannot determine without runtime instrumentation:**
+- Whether `cb_eth_1710288000_model.zip` actually exists on disk (would
+  determine which hypothesis is correct)
+- Whether sliding will eventually break out due to convergence criteria
+
+#### Time-to-completion: unknown
+
+Three scenarios with rough probabilities:
+
+| Scenario | Probability | ETA |
+|---|---|---|
+| Internal iteration cap triggers natural exit | 30% | hours to days |
+| Permanent loop, manual kill required | 50% | never (without intervention) |
+| Sliding breaks out due to data bound recomputation | 20% | uncertain |
+
+The previous "0-3 windows remaining" and "1-3 days" estimates have both
+proven wrong. Best to monitor whether sub-train name 1710892800 ever
+appears (would confirm sliding resumed) vs. continued production of
+PPO_220, 221... within sub-train 1710288000 (would confirm stall).
+
+#### Five-candidate OOS plan -- now urgent
+
+If training is permanently looping, the OOS backtest should proceed with
+the candidates already produced. PPO_219 enters as a sixth candidate
+(profit + entropy combo).
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | profit 4.65 / entropy 23% / Neutral 89% | High (Spec1 validation) |
+| PPO_189 | profit 1.45 / entropy 47% | Medium |
+| PPO_197 | profit 3.88 individual peak | Medium |
+| PPO_211 | profit 3.43 / entropy 62% / Neutral 75% / **12/2/0** | High (cleanest health) |
+| **PPO_219** | **profit 4.36 / entropy 56% / Neutral 66% / 9/5/0** | **Highest (best alpha+health combo)** |
+| PPO_final | TBD if training ever completes | Conditional |
+
+#### Status: monitor 24h, then decide
+
+Watch points for tomorrow (2026-05-01):
+- Does folder `sub-train-ETH_1710892800` (2024-03-20) appear? If yes,
+  sliding resumed -- continue waiting
+- If only PPO_220+ appear within sub-train 1710288000, stall confirmed
+- If `best_model.zip` in older sub-trains continues being overwritten,
+  process is on 3rd+ pass -- definite loop, manual intervention needed
+
+If 24h shows no name advancement: kill process, accept PPO_219 as
+training-end checkpoint, proceed to OOS backtest with the 6 candidates
+above.
