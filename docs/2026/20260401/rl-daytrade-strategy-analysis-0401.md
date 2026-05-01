@@ -2814,3 +2814,111 @@ Watch points for tomorrow (2026-05-01):
 If 24h shows no name advancement: kill process, accept PPO_219 as
 training-end checkpoint, proceed to OOS backtest with the 6 candidates
 above.
+
+### 11.16 PPO_225 Checkpoint (2026-05-01) -- stall hypothesis FALSIFIED, sliding resumed
+
+#### Critical correction: yesterday's "permanent stall" was WRONG
+
+The 24h watch point fired exactly. Sub-train name DID advance:
+
+| Item | 2026-04-30 (PPO_219) | 2026-05-01 (PPO_225) | Change |
+|---|---|---|---|
+| Latest sub-train ts | 1710288000 (2024-03-13) | **1713916800 (2024-04-23)** | **+6 windows, +41 days** |
+| Sub-train folder count | 94 | 100 | +6 |
+| PPO count | 219 | 225 | +6 |
+| PPO:sub-train new ratio | -- | **1:1** | normal sliding |
+
+The "stall" interpretation from Section 11.15 is **falsified**. Sliding
+window was making progress, just at a rate that made the latest folder
+name appear static under `ls | tail` ordering. The 24h decision point
+correctly showed advancement -- training continues normally.
+
+The `feedback_sliding_window_stall.md` memory entry should be downgraded
+from "confirmed bug" to "misread observation" -- the model_exists() vs
+best_model.zip distinction is real code architecture but it was NOT
+causing a stall in this run.
+
+#### Status
+
+5-window summary: **11 OK / 3 WARN / 0 FAIL** -- improvement vs PPO_219's
+9/5/0 (gained 2 OK, dropped 2 WARN). FAIL count holds at 0 for 7
+consecutive 5-window samples since PPO_211.
+
+#### Per-window metrics (PPO_221-225)
+
+| Window | Profit | Neutral % | Entropy | Win Rate | Value Loss | ExplVar | ep_len |
+|---|---|---|---|---|---|---|---|
+| PPO_221 | 3.23 | 73% | 57% | 45% | 30-38 (1.27x) | 0.77 | 7486 |
+| PPO_222 | 1.39 | 67% | 55% | 42% | 28-72 (2.59x) | 0.57 | 8910 |
+| PPO_223 | 4.33 | 67% | 65% | 46% | 25-33 (1.32x) | 0.87 | 8223 |
+| **PPO_224** | **7.04** | 67% | 66% | **50%** | 28-48 (1.69x) | 0.76 | 7971 |
+| PPO_225* | 1.22 | 65% | 76% | 44% | 32-26 (0.80x) | 0.77 | 3821 |
+
+*PPO_225 in-flight at 15% (148/989 iter).
+
+5-window profit avg = **3.44** (range 1.22-7.04). Slightly below PPO_219's
+4.36 due to PPO_222's 1.39 outlier, but PPO_224 hit **7.04**, the
+HIGHEST individual window in entire v2 training history (beats PPO_178
+6.92, PPO_216 6.93, PPO_218 6.69).
+
+#### Cross-checkpoint comparison (history-best individual window)
+
+| Window | Health | Avg Profit | Best Single | Entropy | Neutral % | Phase |
+|---|---|---|---|---|---|---|
+| PPO_178 | 9/3/2 | 4.65 | 6.92 | 23% FAIL | 89% | Spec1 |
+| PPO_211 | 12/2/0 | 3.43 | 5.09 | 62% | 75% | Spec2 exit |
+| PPO_219 | 9/5/0 | 4.36 | 6.93 | 56% | 66% | Profit + entropy combo |
+| **PPO_225** | **11/3/0** | **3.44** | **7.04** | **66%** | **68%** | **History-best individual + entropy still rising** |
+
+Entropy_trend cross-window: **+18.0pp** (57% -> 76%). Agent is becoming
+MORE explorative across windows, not less. This is opposite of Spec1/Spec2
+specialization patterns and indicates active learning continues.
+
+#### Time-to-completion (revised, third estimate)
+
+| Item | Value |
+|---|---|
+| Current sub-train end date | 2024-04-23 |
+| Timerange end target | 2026-03-25 |
+| Remaining days of timerange | ~702 days |
+| Sub-trains remaining @ 7d stride | ~100 |
+| Today's rate (24h sample) | ~6 sub-train/day |
+| Sustainable rate (factor for slowdowns) | ~4 sub-train/day |
+| **ETA range** | **17-25 days from now** |
+| **Predicted completion** | **2026-05-17 to 2026-05-25** |
+
+Comparison of completion estimates over time:
+- 2026-04-28: "0-3 windows remaining" -- WRONG
+- 2026-04-29: "1-3 days" -- WRONG
+- 2026-04-30: "permanent loop, manual kill needed" -- WRONG
+- **2026-05-01: 17-25 days remaining** -- based on actual sub-train advance rate
+
+The pattern of progressively-extending estimates suggests the timerange
+genuinely requires more training than originally planned. The 0401 plan's
+189-window estimate is now seen as a significant underestimate; actual
+will be ~325 PPO windows (225 done + ~100 more).
+
+#### OOS plan: 6 candidates unchanged
+
+PPO_225 is in-flight; PPO_224 (profit 7.04) becomes a new candidate when
+finalized. Current top OOS candidates:
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_189 | 1.45 / entropy 47% | Medium |
+| PPO_197 | 3.88 individual peak | Medium |
+| PPO_211 | 3.43 / entropy 62% / **12/2/0 cleanest** | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 best alpha+health | High |
+| **PPO_224** | **7.04 individual record / entropy 66% / 0 FAIL** | **New top single-window candidate** |
+| PPO_final | TBD on natural completion | Conditional |
+
+#### Status
+
+Training advancing normally. PPO_225 ~80-90% complete by next analyze-rl
+cycle. Sub-train sliding resumed and progressing at expected pace.
+
+Memory file `feedback_sliding_window_stall.md` should be updated to mark
+the stall hypothesis as falsified, while preserving the code-level
+architecture finding (model_exists vs best_model.zip) as accurate but
+not causally responsible for any observed delay.
