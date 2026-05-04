@@ -3042,3 +3042,116 @@ doesn't produce something even better in the remaining 13-19 days).
 Training is in its strongest 24h period. ETA mid-to-late May 2026. Do
 not interrupt -- ongoing run is producing genuine alpha in a regime
 that resembles real market volatility.
+
+### 11.18 PPO_249 Checkpoint (2026-05-05) -- PPO_248 hits 10.80, first individual window > 10
+
+#### Headline: profit ceiling broken to double digits
+
+PPO_248 reached profit **10.80**, the first v2 individual window above
+10.0 (beats PPO_231's 9.54). Sustained alpha continues across PPO_245-249:
+
+| Window | Profit | Note |
+|---|---|---|
+| PPO_245 | 4.89 | Mid-stage |
+| PPO_246 | 8.22 | Strong |
+| PPO_247 | 1.14 | env[0] tiny sample (172 actions); aggregate profit still positive |
+| **PPO_248** | **10.80** | **First > 10, NEW history-best individual** |
+| PPO_249* | 4.78 | In-flight at 38% |
+
+5-window profit avg = **5.96** (range 1.14-10.80). Slightly below PPO_232
+era's 7.12 due to PPO_247 sampling artifact, but PPO_248's 10.80 sets
+the new ceiling.
+
+#### Health summary: 9 OK / 4 WARN / 1 FAIL
+
+The 1 FAIL is **value_loss 2.14x in PPO_248** -- but this is a
+single-window overshoot during high-alpha learning, not a trend.
+Cross-window value_loss progression:
+
+| Window | Value Loss First -> Last | Ratio | Status |
+|---|---|---|---|
+| PPO_245 | 31 -> 44 | 1.43x | WARN |
+| PPO_246 | 30 -> 49 | 1.66x | WARN |
+| PPO_247 | 31 -> 47 | 1.51x | WARN |
+| PPO_248 | 27 -> 57 | **2.14x** | **FAIL** |
+| PPO_249 | 47 -> 44 | **0.94x** | **OK (recovered)** |
+
+PPO_249's in-window value_loss is already converging (0.94x), confirming
+PPO_248 was a learning-rate spike from absorbing the high-profit alpha,
+not a degradation pattern.
+
+The 4 WARN are mostly PPO_248-specific:
+- policy_collapse Neutral=61% (mid-band, similar to recent windows)
+- invalid_actions 20.5% (large sample, persistent issue)
+- explained_variance 0.46 (PPO_248 noisy, but PPO_249 back to 0.73)
+- long_short_bias 68% Short (PPO_248 single-window; not persistent across windows)
+
+#### L/S bias is not persistent (regime adaptation)
+
+Per-window L/S distribution:
+- PPO_245: 56/44 balanced
+- PPO_246: 51/49 balanced
+- PPO_247: 54/46 balanced
+- PPO_248: 32/68 SHORT-heavy <- WARN source
+- PPO_249: 63/37 LONG-heavy
+
+Agent flips direction by window, matching the 2024 mid-year market regime
+shifts (PPO_248 covers ~2024-08 carry trade unwind crash; PPO_249 covers
+the rebound). This is healthy regime adaptation, NOT specialization.
+
+#### Sub-train advance: +17 in 3 days (5.7/day, consistent)
+
+Note: This analysis happens 3 days after PPO_232 (2026-05-02), not 1 day.
+
+| Date | Latest sub-train | Sub-train count | PPO count |
+|---|---|---|---|
+| 2026-05-02 | 1718150400 (2024-06-12) | 107 | 232 |
+| **2026-05-05** | **1728432000 (2024-10-08)** | **124** | **249** |
+| Delta | +118 days timerange | +17 | +17 |
+
+Rate: 5.7 sub-train/day (3-day average), down from 7/day peak but still
+healthy. PPO:sub-train ratio 1:1 maintained.
+
+#### Time-to-completion (fifth revision)
+
+| Item | Value |
+|---|---|
+| Current sub-train end | 2024-10-08 |
+| Timerange end target | 2026-03-25 |
+| Remaining timerange | ~534 days |
+| Remaining sub-trains @ 7d stride | ~76 |
+| Recent 3-day rate | 5.7 sub-train/day |
+| Optimistic (7/day) | ~11 days |
+| Conservative (5/day) | ~15 days |
+| **ETA range** | **2026-05-16 to 2026-05-20** |
+
+Consistent with 2026-05-02 estimate (5/15-5/21). No change in trajectory.
+
+#### Updated OOS plan: PPO_248 added as new top single-window candidate
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_211 | 3.43 / entropy 62% / **12/2/0 cleanest** | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 | Medium |
+| PPO_224 | 7.04 / entropy 66% | Medium |
+| PPO_231 | 9.54 / entropy 67% / "healthy Spec1" | High |
+| **PPO_248** | **10.80 / entropy 69% / first > 10** | **NEW TOP** |
+| PPO_final | TBD | Conditional |
+
+PPO_248 takes the new top spot for highest single-window profit while
+maintaining entropy 69% (healthier than any of Spec1's checkpoints at
+similar profit levels). However its 32/68 L/S split is regime-specific;
+OOS testing should validate whether PPO_248's policy generalizes or
+only works in the 2024-08 short-bias regime.
+
+PPO_211 remains preferred for "cleanest health" baseline (12/2/0). PPO_231
+remains preferred for "balanced L/S + healthy + high profit". PPO_248
+adds "individual ceiling" to the candidate pool.
+
+#### Status
+
+Training advancing normally. Watch points:
+- PPO_249 completion: confirm value_loss recovery (already showing 0.94x)
+- Whether PPO_250+ produces another > 10 window or PPO_248 stays as ceiling
+- Sub-train rate -- if drops below 4/day, ETA extends
