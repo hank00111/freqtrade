@@ -3155,3 +3155,132 @@ Training advancing normally. Watch points:
 - PPO_249 completion: confirm value_loss recovery (already showing 0.94x)
 - Whether PPO_250+ produces another > 10 window or PPO_248 stays as ceiling
 - Sub-train rate -- if drops below 4/day, ETA extends
+
+### 11.19 PPO_264 Checkpoint (2026-05-06) -- PPO_263 hits 11.86, new training-history best, 0 FAIL recovered
+
+#### Headline: profit ceiling broken to 11.86, all health metrics OK
+
+PPO_263 reached profit **11.86**, the new v2 training-history best
+individual window (beats PPO_248's 10.80 set yesterday). Four consecutive
+ascending windows leading to the peak:
+
+| Window | Profit | Note |
+|---|---|---|
+| PPO_260 | 2.13 | Mid-stage |
+| PPO_261 | 6.81 | Recovery |
+| PPO_262 | 9.42 | Strong |
+| **PPO_263** | **11.86** | **NEW history-best individual window** |
+| PPO_264* | 0.87 | In-flight at 4% (41 iter, unreliable) |
+
+5-window profit avg = **6.22** (range 0.87-11.86), up from PPO_249 era's
+5.96. Profit baseline continues to rise.
+
+#### Health summary: 11 OK / 3 WARN / 0 FAIL (training-best since Spec2 exit)
+
+Health recovered from PPO_249's 9/4/1 (1 FAIL = value_loss 2.14x) to
+**11/3/0** at PPO_263. value_loss FAIL → WARN confirmed as single-window
+overshoot, exactly as predicted last cycle.
+
+| Check | PPO_249 (PPO_248 latest_complete) | PPO_264 (PPO_263 latest_complete) | Delta |
+|---|---|---|---|
+| value_loss | 2.14x **FAIL** | 1.08x WARN | **recovered** |
+| explained_variance | 0.46 WARN | 0.73 **OK** | **+59%** |
+| long_short_bias | 32/68 WARN | 61/39 **OK** | **balanced** |
+| win_rate | 49.5% OK | 55.8% OK | **+6.3pp** |
+| Summary | **9/4/1** | **11/3/0** | **+2 OK, -1 WARN, -1 FAIL** |
+
+#### value_loss recovery confirms PPO_248 was single-window overshoot
+
+Cross-window value_loss progression (extending PPO_249-era table):
+
+| Window | Value Loss First -> Last | Ratio | Status |
+|---|---|---|---|
+| PPO_248 | 27 -> 57 | 2.14x | FAIL (overshoot) |
+| PPO_249 | 47 -> 44 | 0.94x | OK |
+| PPO_260 | 26 -> 34 | 1.33x | WARN |
+| PPO_261 | 28 -> 38 | 1.36x | WARN |
+| PPO_262 | 33 -> 49 | 1.51x | WARN |
+| PPO_263 | 34 -> 37 | **1.08x** | **WARN** |
+
+PPO_249's 0.94x recovery + PPO_260-263 stable 1.08-1.51x range confirms
+PPO_248 was a one-time learning-rate spike absorbing the 10.80 alpha.
+NOT a regression risk.
+
+#### L/S bias returns to balanced (regime adaptation working)
+
+Per-window L/S distribution, full PPO_245-263 view:
+
+| Window | L/S | Note |
+|---|---|---|
+| PPO_245 | 56/44 | balanced |
+| PPO_246 | 51/49 | balanced |
+| PPO_247 | 54/46 | balanced |
+| PPO_248 | 32/68 | SHORT-heavy (2024-08 carry trade unwind) |
+| PPO_249 | 63/37 | LONG-heavy (rebound) |
+| PPO_260 | 55/45 | balanced |
+| PPO_261 | 55/45 | balanced |
+| PPO_262 | 40/60 | mild SHORT |
+| PPO_263 | 61/39 | balanced |
+
+Agent flips direction by regime, no specialization persistence. PPO_248's
+68% short was a single-window event tied to specific market conditions.
+
+#### Sub-train advance: +15 in ~1 day (15/day spike)
+
+| Date | Latest sub-train | Sub-train count | PPO count |
+|---|---|---|---|
+| 2026-05-05 | 1728432000 (2024-10-08) | 124 | 249 |
+| **2026-05-06** | **1737504000 (2025-01-22)** | **~139** | **264** |
+| Delta | +106 days timerange | +15 | +15 |
+
+Rate: 15 sub-train/day spike (highest since PPO_131 era's early-2022 fast
+phase). PPO:sub-train ratio 1:1 maintained. Likely a one-day cluster, not
+a sustained pace shift -- 3-day average should normalize back toward 7/day.
+
+#### Time-to-completion (sixth revision)
+
+| Item | Value |
+|---|---|
+| Current sub-train end | 2025-01-22 |
+| Timerange end target | 2026-03-25 |
+| Remaining timerange | ~428 days |
+| Remaining sub-trains @ 7d stride | ~61 |
+| Recent 1-day rate | 15 sub-train/day (spike) |
+| Sustainable rate | ~7 sub-train/day |
+| Optimistic (10/day) | ~6 days |
+| Conservative (5/day) | ~12 days |
+| **ETA range** | **2026-05-12 to 2026-05-18** |
+
+Slight acceleration vs 2026-05-05 estimate (5/16-5/20). If 15/day spike
+holds, ETA could pull forward to 5/12; if rate normalizes to 7/day, ETA
+~5/15. Either way training is in the final stretch.
+
+#### Updated OOS plan: PPO_263 added as new TOP single-window candidate
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_211 | 3.43 / entropy 62% / **12/2/0 cleanest** | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 | Medium |
+| PPO_224 | 7.04 / entropy 66% | Medium |
+| PPO_231 | 9.54 / entropy 67% / "healthy Spec1" | High |
+| PPO_248 | 10.80 / entropy 69% / 32/68 L/S regime-specific | Medium (regime-conditioned) |
+| **PPO_263** | **11.86 / entropy 63% / 61/39 balanced / EV 0.73** | **NEW TOP** |
+| PPO_final | TBD | Conditional |
+
+PPO_263 supersedes PPO_248 as TOP single-window candidate because:
+- Higher profit (11.86 > 10.80)
+- L/S balanced 61/39 (vs PPO_248's 32/68 regime-locked)
+- Higher explained_variance (0.73 vs 0.46) -- value function more predictive
+- Higher win rate (55.8% vs 49.5%)
+- 0 FAIL (vs PPO_248's value_loss 2.14x FAIL)
+
+PPO_263 is the strongest combination yet: maximum profit + balanced
+direction + healthy entropy + predictive value function + clean health.
+
+#### Status
+
+Training advancing strongly. Watch points:
+- Whether PPO_265+ holds the new 11.86 ceiling or surpasses it
+- Sub-train rate normalization (15/day spike likely transient)
+- ETA pull-forward if 15/day rate sustains
