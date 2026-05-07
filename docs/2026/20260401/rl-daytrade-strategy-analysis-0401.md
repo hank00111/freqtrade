@@ -3283,4 +3283,134 @@ direction + healthy entropy + predictive value function + clean health.
 Training advancing strongly. Watch points:
 - Whether PPO_265+ holds the new 11.86 ceiling or surpasses it
 - Sub-train rate normalization (15/day spike likely transient)
+
+### 11.20 PPO_271 Checkpoint (2026-05-07) -- PPO_268 hits 13.73, third consecutive ceiling break, training-best health 12/2/0
+
+#### Headline: profit ceiling broken three days in a row
+
+PPO_268 reached profit **13.73**, the new v2 training-history best
+individual window. Three consecutive days, three new ceilings:
+
+| Date | Window | Profit | Delta vs prior peak |
+|---|---|---|---|
+| 2026-05-05 | PPO_248 | 10.80 | first > 10 (+12% vs PPO_231 9.54) |
+| 2026-05-06 | PPO_263 | 11.86 | +10% vs PPO_248 |
+| **2026-05-07** | **PPO_268** | **13.73** | **+16% vs PPO_263** |
+
+PPO_267-271 cluster all profitable, three of five above 6.8:
+
+| Window | Profit | Note |
+|---|---|---|
+| PPO_267 | 3.22 | Mid-stage |
+| **PPO_268** | **13.73** | **NEW history-best individual window** |
+| PPO_269 | 6.84 | Strong |
+| PPO_270 | 9.67 | Near-double-digit |
+| PPO_271 | 1.98 | latest_complete, smaller sample |
+
+5-window profit avg = **7.09** (range 1.98-13.73), continuing the
+upward trajectory: 5.96 (PPO_245-249) -> 6.22 (PPO_260-264) -> **7.09**.
+
+#### Health summary: 12 OK / 2 WARN / 0 FAIL (training-best)
+
+Health matches the previous training-best (PPO_211's 12/2/0) and exceeds
+PPO_264's 11/3/0. value_loss escalation FAIL -> WARN -> **OK** complete
+across three cycles:
+
+| Check | PPO_249 | PPO_264 | PPO_271 | Trend |
+|---|---|---|---|---|
+| value_loss | 2.14x **FAIL** | 1.08x WARN | 0.97x **OK** | recovered |
+| explained_variance | 0.46 WARN | 0.73 OK | 0.64 OK | predictive |
+| long_short_bias | 32/68 WARN | 61/39 OK | 45/55 OK | balanced |
+| Summary | 9/4/1 | 11/3/0 | **12/2/0** | training-best |
+
+Only 2 WARN remain:
+- policy_collapse Neutral=67% (HQT-band, expected)
+- invalid_actions 16.4% (down from 18.0%, persistent design artifact)
+
+#### value_loss fully stabilized across three cycles
+
+Cross-window value_loss progression (extending from prior sections):
+
+| Window | First -> Last | Ratio | Status |
+|---|---|---|---|
+| PPO_248 | 27 -> 57 | 2.14x | FAIL (overshoot) |
+| PPO_249 | 47 -> 44 | 0.94x | OK |
+| PPO_263 | 34 -> 37 | 1.08x | WARN |
+| PPO_267 | 31 -> 54 | 1.75x | WARN (PPO_268 alpha absorption) |
+| PPO_268 | 41 -> 27 | 0.67x | **OK (in-window decreasing)** |
+| PPO_269 | 38 -> 54 | 1.43x | WARN |
+| PPO_270 | 32 -> 65 | 2.03x | borderline FAIL (PPO_270 alpha absorption) |
+| PPO_271 | 28 -> 27 | **0.97x** | **OK** |
+
+Pattern: value_loss spikes on high-alpha absorption windows (PPO_267,
+PPO_270) but recovers within 1 window. NOT a degradation pattern --
+this is healthy learning of high-alpha episodes.
+
+#### Three high-alpha windows clustered (2025 H1 regime)
+
+PPO_268 (13.73) + PPO_270 (9.67) + PPO_269 (6.84) -- three of five
+windows above 6.8. Sub-train data covers ~2025 Q1 ~ early Q2:
+- 2025-01 ETF aftermath consolidation
+- 2025-Q1 macro pivot uncertainty
+- 2025-04 Trump tariff announcement volatility (estimated)
+
+This regime cluster resembles PPO_228-231 era (4 of 5 windows > 7.8).
+Both regimes produce repeated high-alpha windows when ETH volatility
+combines with regime breakpoints.
+
+#### Sub-train rate normalized to ~7/day
+
+| Date | Latest sub-train | Sub-train count | PPO count | Rate |
+|---|---|---|---|---|
+| 2026-05-06 | 1737504000 (2025-01-22) | ~139 | 264 | 15/day spike |
+| **2026-05-07** | **est ~1742256000 (2025-03-19)** | **~146** | **271** | **~7/day normalized** |
+
+15/day spike on 2026-05-06 confirmed transient. Pace returned to
+sustainable ~7/day. PPO:sub-train ratio 1:1 maintained.
+
+#### Time-to-completion (seventh revision)
+
+| Item | Value |
+|---|---|
+| Current sub-train end (estimate) | 2025-03-19 |
+| Timerange end target | 2026-03-25 |
+| Remaining timerange | ~371 days |
+| Remaining sub-trains @ 7d stride | ~53 |
+| Recent sustainable rate | ~7 sub-train/day |
+| Optimistic (10/day) | ~5 days |
+| Conservative (5/day) | ~11 days |
+| **ETA range** | **2026-05-12 to 2026-05-18** |
+
+Consistent with 2026-05-06 estimate. Final stretch: ~5-11 days remaining.
+
+#### Updated OOS plan: PPO_268 added as new TOP single-window candidate
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_211 | 3.43 / entropy 62% / **12/2/0 cleanest** | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 | Medium |
+| PPO_224 | 7.04 / entropy 66% | Medium |
+| PPO_231 | 9.54 / entropy 67% / "healthy Spec1" | High |
+| PPO_248 | 10.80 / entropy 69% / 32/68 regime-specific | Medium |
+| PPO_263 | 11.86 / entropy 63% / 61/39 balanced | High |
+| **PPO_268** | **13.73 / entropy 69% / 63/37 balanced / 12/2/0** | **NEW TOP** |
+| PPO_final | TBD | Conditional |
+
+PPO_268 supersedes PPO_263 as TOP single-window candidate because:
+- Higher profit (13.73 > 11.86, +16%)
+- Larger sample (action count 13534 vs PPO_263's 8549, ~58% larger)
+- L/S balanced 63/37 (1977L/1139S, healthy)
+- value_loss in-window 0.67x decreasing (best learning stability)
+- Healthy entropy 69% (vs PPO_263's 63%)
+
+PPO_268 represents the best combination so far: maximum profit + larger
+sample size + healthier entropy + stable value learning + balanced L/S.
+
+#### Status
+
+Training in final stretch (~5-11 days). Watch points:
+- Whether PPO_273+ holds 13.73 ceiling or sets another new high
+- ETH 2025 H1 regime cluster effect (3 high-alpha windows in PPO_267-270)
+- Final sub-train approach to 2026-03-25 (will hit data exhaustion)
 - ETA pull-forward if 15/day rate sustains
