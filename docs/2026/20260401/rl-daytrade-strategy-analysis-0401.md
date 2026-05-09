@@ -3413,4 +3413,125 @@ Training in final stretch (~5-11 days). Watch points:
 - Whether PPO_273+ holds 13.73 ceiling or sets another new high
 - ETH 2025 H1 regime cluster effect (3 high-alpha windows in PPO_267-270)
 - Final sub-train approach to 2026-03-25 (will hit data exhaustion)
+
+### 11.21 PPO_284 Checkpoint (2026-05-09) -- high-floor regime, 5-window avg profit 7.92 sets training-history record
+
+#### Headline: Floor raised - all five windows above 4, three above 9.58
+
+PPO_280-284 forms the most consistent high-alpha cluster in v2 history.
+Individual peak (10.08) is lower than PPO_268's 13.73, but the floor is
+the highest ever -- no window below 4.
+
+| Window | Profit | Note |
+|---|---|---|
+| PPO_280 | 10.08 | Double-digit |
+| PPO_281 | 5.79 | Mid-range |
+| PPO_282 | 10.08 | Double-digit (high activity 1138L/1190S) |
+| PPO_283 | 9.58 | Near-double-digit, latest_complete |
+| PPO_284* | 4.06 | In-flight 23% (232 iter) |
+
+5-window profit avg = **7.92** -- v2 training-history record:
+
+| Cluster | Avg | Peak |
+|---|---|---|
+| PPO_145-149 (2024 Q3 recovery) | 7.85 | 15.30 |
+| PPO_228-232 (healthy Spec1) | 7.12 | 9.54 |
+| PPO_245-249 (first > 10) | 5.96 | 10.80 |
+| PPO_260-264 | 6.22 | 11.86 |
+| PPO_267-271 | 7.09 | 13.73 |
+| **PPO_280-284** | **7.92** | 10.08 (twice) |
+
+PPO_280-284 differs from PPO_267-271 in shape: PPO_267-271 had two windows
+under 3.5 (3.22, 1.98) but a 13.73 ceiling; PPO_280-284 has all five > 4
+with a 10.08 ceiling appearing twice. Trade-off: lower variance, higher
+floor.
+
+#### Health summary: 11 OK / 3 WARN / 0 FAIL (4th consecutive 0 FAIL cycle)
+
+| Cycle | Health | Note |
+|---|---|---|
+| PPO_249 | 9/4/1 | value_loss FAIL (overshoot) |
+| PPO_264 | 11/3/0 | recovered |
+| PPO_271 | 12/2/0 | training-best |
+| **PPO_284** | **11/3/0** | value_loss WARN re-emerged on PPO_283 absorption |
+
+The single delta vs PPO_271 is value_loss: 0.97x OK -> 1.68x WARN. PPO_283
+absorbed 9.58 alpha with the typical learning-rate spike pattern. PPO_284
+in-window already shows 45.82 -> 41.03 (0.90x decreasing) -- recovery
+underway.
+
+#### explained_variance hits 0.857 -- v2 history peak
+
+PPO_283's explained_variance 0.857 is the highest value function predictive
+power in entire v2 training:
+
+| Window | EV | Note |
+|---|---|---|
+| PPO_249 | 0.46 | PPO_248 absorption noise |
+| PPO_263 | 0.73 | Recovered |
+| PPO_268 | 0.78 | TOP candidate |
+| PPO_271 | 0.64 | |
+| **PPO_283** | **0.857** | **v2 history peak** |
+
+Combined with win_rate 55.4% (matches PPO_263), this means PPO_283 has
+the most accurate value function in v2 history. The agent now models
+state-value relationships with predictive precision.
+
+#### Sub-train rate sustained at ~6.5/day
+
+| Date | Latest sub-train (estimate) | Sub-train count | PPO count | Rate |
+|---|---|---|---|---|
+| 2026-05-07 | 1742256000 (2025-03-19) | ~146 | 271 | ~7/day |
+| **2026-05-09** | **est ~1750464000 (2025-06-21)** | **~159** | **284** | **~6.5/day** |
+
+Sub-train advanced ~94 days timerange / 13 windows / 2 days = sustainable
+~6.5/day. PPO:sub-train ratio 1:1 maintained.
+
+#### Time-to-completion (eighth revision)
+
+| Item | Value |
+|---|---|
+| Current sub-train end (estimate) | 2025-06-21 |
+| Timerange end target | 2026-03-25 |
+| Remaining timerange | ~277 days |
+| Remaining sub-trains @ 7d stride | ~40 |
+| Recent rate | ~6.5 sub-train/day |
+| Optimistic (8/day) | ~5 days |
+| Conservative (5/day) | ~8 days |
+| **ETA range** | **2026-05-13 to 2026-05-17** |
+
+Slight narrowing vs 2026-05-07 estimate (5/12-5/18). Final week.
+
+#### Updated OOS plan: PPO_283 added as new "best value function" candidate
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_211 | 3.43 / entropy 62% / 12/2/0 cleanest | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 | Medium |
+| PPO_224 | 7.04 / entropy 66% | Medium |
+| PPO_231 | 9.54 / entropy 67% / "healthy Spec1" | High |
+| PPO_248 | 10.80 / entropy 69% / 32/68 regime-specific | Medium |
+| PPO_263 | 11.86 / entropy 63% / 61/39 balanced | High |
+| **PPO_268** | **13.73 / entropy 69% / 63/37 balanced / 12/2/0** | **TOP (max profit)** |
+| **PPO_283** | **9.58 / EV 0.857 v2 peak / win 55.4% / L/S 53/47** | **High (best value function)** |
+| PPO_final | TBD | Conditional |
+
+PPO_283 does NOT supersede PPO_268 (lower profit). It enters as a
+complementary candidate optimizing different dimension:
+- PPO_268: max raw alpha (13.73 profit, 1977 entries)
+- PPO_283: max value function precision (EV 0.857, win 55.4%)
+
+OOS testing should compare both -- if PPO_283 generalizes better than
+PPO_268 despite lower in-sample profit, it suggests value function
+precision matters more than raw alpha for OOS robustness.
+
+#### Status
+
+Training in final week (~5-9 days). Watch points:
+- Whether PPO_290+ produces another > 12 ceiling break
+- Whether high-floor pattern persists or reverts to PPO_267-271's
+  variance shape
+- Final sub-train approach to 2026-03-25 (data exhaustion will trigger
+  natural completion)
 - ETA pull-forward if 15/day rate sustains
