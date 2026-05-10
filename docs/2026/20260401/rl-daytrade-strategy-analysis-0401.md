@@ -3534,4 +3534,130 @@ Training in final week (~5-9 days). Watch points:
   variance shape
 - Final sub-train approach to 2026-03-25 (data exhaustion will trigger
   natural completion)
+
+### 11.22 PPO_291 Checkpoint (2026-05-10) -- PPO_289 nearly ties PPO_268 record at 13.69, PPO_290 EV 0.860 new v2 peak
+
+#### Headline: high-alpha capability validated as repeatable
+
+PPO_289 reached profit **13.69**, just 0.04 short of PPO_268's 13.73
+record. Two windows producing 13+ alpha in different sub-trains proves
+the model's high-alpha capability is **repeatable, not a one-off peak**.
+
+Recent profits (PPO_287-291): 1.74, 12.59, 13.69, 4.84, 6.22 -- avg **7.81**
+
+| Window | Profit | Note |
+|---|---|---|
+| PPO_287 | 1.74 | Smaller sample (1652 actions) |
+| PPO_288 | 12.59 | Long-heavy 63/37 |
+| PPO_289 | 13.69 | **v2 #2 individual window (0.04 short of PPO_268)** |
+| PPO_290 | 4.84 | **EV 0.860 NEW v2 history peak value function** |
+| PPO_291 | 6.22 | latest_complete |
+
+Profit shape: peak (13.69) + mid-range (4.84-6.22) + one low (1.74).
+Closer to PPO_267-271's variance shape than PPO_280-284's high-floor
+shape. Average 7.81 vs PPO_280-284's 7.92.
+
+#### PPO_290 explained_variance 0.860 = NEW v2 peak value function
+
+Value function predictive power continues to strengthen:
+
+| Window | EV |
+|---|---|
+| PPO_249 | 0.46 |
+| PPO_263 | 0.73 |
+| PPO_268 | 0.78 |
+| PPO_271 | 0.64 |
+| PPO_283 | 0.857 |
+| **PPO_290** | **0.860** |
+
+Two consecutive cycles producing EV > 0.85 windows. The agent's value
+function has entered a new precision tier. PPO_290 supersedes PPO_283
+as best-EV candidate.
+
+#### Health summary: 11 OK / 3 WARN / 0 FAIL (5th consecutive 0 FAIL cycle)
+
+| Cycle | Health | Note |
+|---|---|---|
+| PPO_249 | 9/4/1 | value_loss FAIL |
+| PPO_264 | 11/3/0 | recovered |
+| PPO_271 | 12/2/0 | training-best |
+| PPO_284 | 11/3/0 | value_loss WARN re-emerged |
+| **PPO_291** | **11/3/0** | **value_loss recovered to OK 0.94x** |
+
+Single delta from PPO_284: reward_trend changed OK -> WARN (-7.3%) and
+value_loss WARN -> OK (1.68x -> 0.94x). reward_trend WARN is metric
+artifact: PPO_290-291 ep_len stretched (12809, 11193) accumulating small
+holding losses while profit stayed positive. Not a real degradation.
+
+#### value_loss recovery confirmed
+
+| Window | First -> Last | Ratio | Status |
+|---|---|---|---|
+| PPO_283 | 28 -> 48 | 1.68x | WARN (alpha absorption) |
+| PPO_287 | 31 -> 71 | 2.30x | borderline FAIL (PPO_287 small sample) |
+| PPO_288 | 31 -> 82 | 2.66x | borderline FAIL (12.59 alpha absorption) |
+| PPO_289 | 36 -> 110 | 3.04x | borderline FAIL (13.69 alpha absorption) |
+| PPO_290 | 42 -> 30 | 0.72x | OK (in-window decreasing) |
+| PPO_291 | 36 -> 34 | **0.94x** | **OK** |
+
+Pattern: value_loss spikes hard on alpha-absorption windows (PPO_287-289)
+then PPO_290 normalizes, PPO_291 confirms recovery. Same pattern as
+PPO_267-271 era (PPO_267 1.75x -> PPO_268 0.67x). Not a regression risk.
+
+#### Sub-train rate sustained at ~7/day
+
+| Date | Latest sub-train (estimate) | Sub-train count | PPO count | Rate |
+|---|---|---|---|---|
+| 2026-05-09 | 1750464000 (2025-06-21) | ~159 | 284 | ~6.5/day |
+| **2026-05-10** | **est ~1754697600 (2025-08-09)** | **~166** | **291** | **~7/day** |
+
+Sub-train advanced ~49 days timerange / 7 windows / 1 day = ~7/day.
+PPO:sub-train ratio 1:1 maintained across 9 cycles.
+
+#### Time-to-completion (ninth revision)
+
+| Item | Value |
+|---|---|
+| Current sub-train end (estimate) | 2025-08-09 |
+| Timerange end target | 2026-03-25 |
+| Remaining timerange | ~228 days |
+| Remaining sub-trains @ 7d stride | ~33 |
+| Recent rate | ~7 sub-train/day |
+| Optimistic (8/day) | ~4 days |
+| Conservative (5/day) | ~7 days |
+| **ETA range** | **2026-05-13 to 2026-05-16** |
+
+Slight upper-bound narrowing vs 2026-05-09 estimate (5/13-5/17). Final
+3-7 days remaining.
+
+#### Updated OOS plan: PPO_289 + PPO_290 added
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_211 | 3.43 / 12/2/0 cleanest | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 | Medium |
+| PPO_224 | 7.04 / entropy 66% | Medium |
+| PPO_231 | 9.54 / entropy 67% / "healthy Spec1" | High |
+| PPO_248 | 10.80 / entropy 69% / 32/68 regime-specific | Medium |
+| PPO_263 | 11.86 / entropy 63% / 61/39 balanced | High |
+| **PPO_268** | **13.73 / 63/37 / 12/2/0** | **TOP (max profit)** |
+| PPO_283 | 9.58 / EV 0.857 | Medium (superseded by PPO_290 for EV) |
+| **PPO_289** | **13.69 / 54/46 balanced / 11/3/0** | **High (max-profit verification)** |
+| **PPO_290** | **4.84 / EV 0.860 NEW v2 peak** | **High (best value function)** |
+| PPO_final | TBD | Conditional |
+
+PPO_289 serves as **verification of PPO_268's repeatability**: if both
+generalize well in OOS, max-alpha hypothesis is validated. PPO_290
+supersedes PPO_283 as best-EV candidate (0.860 > 0.857).
+
+#### Status
+
+Training in final 3-7 days. Watch points:
+- Whether final windows produce another 13+ ceiling break or PPO_268
+  remains TOP
+- Whether reward_trend WARN is sustained (potential regime issue) or
+  resolves naturally as ep_len normalizes
+- PPO_final approach -- prepare OOS backtest scaffold but do not start
+  until natural completion
 - ETA pull-forward if 15/day rate sustains
