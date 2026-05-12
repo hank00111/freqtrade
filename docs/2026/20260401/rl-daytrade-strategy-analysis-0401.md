@@ -3802,3 +3802,142 @@ Training in final 3-5 days. Watch points:
 - PPO_303 completion -- reward_trend artifact resolution
 - PPO_final approach -- prepare OOS backtest scaffold but do not start
   until natural completion (target ~2026-05-15 to 2026-05-17)
+
+### 11.24 PPO_307 Checkpoint (2026-05-12) -- v2 best health ratio 12/2/0, post-alpha consolidation phase
+
+#### Headline
+
+PPO_307 in-flight (43/989 iter, 4.3% in-window). Same-day advance from
+PPO_303: +4 complete windows in a few hours on 2026-05-12. Sub-train
+advanced est 2025-11-01 -> est ~2025-11-29 (1:1 maintained).
+
+**Health 12 OK / 2 WARN / 0 FAIL = best ratio in v2 training history.**
+Previous best was 11/3/0 (PPO_211, PPO_271, PPO_291). This cycle
+upgrades to 12/2/0 by virtue of:
+- value_loss returned to OK (0.87x decreasing) after PPO_300 alpha
+  absorption window resolved
+- explained_variance returned to OK (0.777) after dipping to WARN
+- long_short_bias returned to OK (55/45) after mid-WARN at 53/47
+
+No new 10+ alpha window in this batch, but all 5 windows profitable.
+This is the **post-alpha consolidation phase** -- moderate steady
+returns + clean health metrics, characteristic of model integrating
+the prior alpha cycle's knowledge.
+
+#### Recent profits (PPO_303-307)
+
+| Window | Profit | EV | value_loss_last | L/S split | Notes |
+|---|---|---|---|---|---|
+| PPO_303 | 2.79 | 0.792 | 54.75 (1.53x) | 56L/44S | Was in-flight last cycle, now complete |
+| PPO_304 | 3.70 | 0.788 | 38.43 (1.08x) | 53L/47S | value_loss normalizing |
+| PPO_305 | 4.57 | 0.835 | 43.62 (1.37x) | 56L/44S | EV peak of batch |
+| **PPO_306** | **3.56** | **0.777** | **23.17 (0.87x)** | **55L/45S** | **value_loss first sub-1x (decreasing)** |
+| PPO_307* | 0.62* | 0.411* | 25.87 | 44L/56S | *incomplete 43/989, not representative |
+
+5-window average **3.05** (range 0.62-4.57), all positive. Lower than
+PPO_280-284's high-floor avg 7.92, but health metrics cleaner across
+the board.
+
+#### value_loss spike-then-recover cycle complete
+
+Full cycle PPO_299 -> PPO_306:
+
+| Window | Ratio | Status | Trigger |
+|---|---|---|---|
+| PPO_299 | 0.76x | OK | pre-alpha |
+| PPO_300 | 1.44x | WARN | 12.02 alpha absorption |
+| PPO_301 | 1.17x | OK | recovering |
+| PPO_302 | 1.23x | WARN | mild residual |
+| PPO_303 | 1.53x | WARN | (in-flight at last cycle) |
+| PPO_304 | 1.08x | OK | post-alpha normalize |
+| PPO_305 | 1.37x | OK | mild bump |
+| **PPO_306** | **0.87x** | **OK (decreasing)** | **fully resolved** |
+
+PPO_300 alpha absorption cycle took 6 windows to fully normalize.
+Same recovery pattern as PPO_268/PPO_289 cycles. NOT regression risk.
+
+#### explained_variance sustained in 0.78-0.83 band
+
+| Window | EV |
+|---|---|
+| PPO_303 | 0.792 |
+| PPO_304 | 0.788 |
+| **PPO_305** | **0.835** (batch peak) |
+| PPO_306 | 0.777 |
+
+All 4 complete windows EV >= 0.77. Value function predictive power is
+now a steady-state property of the model across post-alpha cycles, not
+a one-off peak. Best EV in v2 history remains PPO_290 (0.860).
+
+#### L/S bias rebalanced and sustained
+
+| Window | L% | S% |
+|---|---|---|
+| PPO_303 | 56 | 44 |
+| PPO_304 | 53 | 47 |
+| PPO_305 | 56 | 44 |
+| **PPO_306** | **55** | **45** |
+
+Cross-window L/S in 53-56% range = healthy regime adaptation, no
+specialization collapse. The 55/45 split is the most balanced range
+we've seen in v2 across multiple consecutive windows.
+
+#### Borderline warnings to monitor
+
+- **approx_kl last = 0.0202** on PPO_306 (mean 0.0095 OK). Single-iteration
+  value at the OK/WARN boundary. Mean stable means single-iter spike,
+  not policy drift. Watch PPO_307 completion.
+- **clip_fraction last = 0.159** on PPO_306 (mean 0.088 OK). Same pattern
+  as KL. Same interpretation: iteration noise, mean stable.
+- **win_rate 43.2%** on PPO_306 (429W/563L) -- lower than PPO_302's 51.8%
+  but still OK (> 40%). Likely an artifact of higher trade volume
+  (2170 invalid + 1939 exits = busier window). Watch PPO_307+ for
+  recovery toward 48-50% range.
+
+#### Sub-train progress
+
+| Item | PPO_303 | PPO_307 |
+|---|---|---|
+| Sub-train end (est) | 2025-11-01 | 2025-11-29 |
+| Windows advanced | -- | +4 |
+| Sub-train advanced | -- | +4 (1:1 maintained) |
+| Time elapsed | -- | same day (2026-05-12) |
+
+Same-day +4 windows = rate-extrapolation unreliable, but consistent
+with prior ~6/day cadence. ETA window unchanged.
+
+#### Updated OOS plan (unchanged, 12 candidates)
+
+PPO_303-307 batch produced no new alpha or EV peaks worth adding.
+OOS plan stays at 12 candidates from PPO_303 cycle:
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_211 | 3.43 / 12/2/0 cleanest | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 | Medium |
+| PPO_224 | 7.04 / entropy 66% | Medium |
+| PPO_231 | 9.54 / entropy 67% / healthy Spec1 | High |
+| PPO_248 | 10.80 / entropy 69% / 32/68 regime-specific | Medium |
+| PPO_263 | 11.86 / entropy 63% / 61/39 balanced | High |
+| **PPO_268** | **13.73 / 63/37 / 12/2/0** | **TOP (max profit)** |
+| PPO_283 | 9.58 / EV 0.857 | Low (superseded by PPO_290) |
+| **PPO_289** | **13.69 / 54/46 balanced / 11/3/0** | **High (verifies PPO_268)** |
+| **PPO_290** | **4.84 / EV 0.860 NEW v2 peak** | **High (best value function)** |
+| **PPO_300** | **12.02 / 58/42 / EV 0.730** | **High (3rd 12+ alpha)** |
+| PPO_final | TBD | Conditional |
+
+**Optional new candidate for review**: PPO_305 (4.57 profit / EV 0.835 /
+55/44 balanced / 12/2/0 batch health). Profile similar to PPO_290
+(modest profit + strong EV + balanced L/S). Not adding now -- PPO_290
+already represents this profile in OOS plan.
+
+#### Status
+
+Training in final 1-3 days (down from 3-5). Watch points:
+- Whether final ~17 sub-trains produce another 12+ ceiling break
+- PPO_307 completion -- whether approx_kl / clip_fraction borderline
+  spikes resolve in next windows
+- Whether 12/2/0 health ratio sustains across PPO_308-312
+- PPO_final approach -- prepare OOS backtest scaffold but do not start
+  until natural completion (target ~2026-05-13 to 2026-05-15)
