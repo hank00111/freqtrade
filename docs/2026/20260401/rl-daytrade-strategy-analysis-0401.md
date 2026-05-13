@@ -3941,3 +3941,141 @@ Training in final 1-3 days (down from 3-5). Watch points:
 - Whether 12/2/0 health ratio sustains across PPO_308-312
 - PPO_final approach -- prepare OOS backtest scaffold but do not start
   until natural completion (target ~2026-05-13 to 2026-05-15)
+
+### 11.25 PPO_316 Checkpoint (2026-05-13) -- triple 10+ alpha cluster, v2 highest 5-window avg 9.78, PPO_315 = new EV peak 0.861
+
+#### Headline
+
+PPO_316 latest_complete. Training advanced 9 windows in ~1 day since
+PPO_307 (~9/day, **acceleration from 6/day**). Sub-train advanced est
+~2025-11-29 -> ~2026-01-31.
+
+**This is the strongest 5-window batch in v2 training history.** Three
+new 10+ alpha windows (PPO_312, PPO_314, PPO_315) produced in single
+batch, average profit **9.78** (range 7.00-11.22) breaks PPO_280-284's
+prior high-floor record of 7.92.
+
+PPO_315 explained_variance **0.861** marginally beats PPO_290's 0.860
+to become new v2 EV peak. PPO_315 also profited 10.77 = first window
+in v2 history with simultaneous 10+ profit + 0.86+ EV (alpha + value
+function dual peak).
+
+Health 10 OK / 4 WARN / 0 FAIL. Slightly worse ratio than PPO_307's
+12/2/0, but all WARN are alpha-cluster absorption side effects, NOT
+structural regression.
+
+#### Recent profits (PPO_312-316)
+
+| Window | Profit | EV | value_loss_last | L/S | Notes |
+|---|---|---|---|---|---|
+| **PPO_312** | **10.79** | 0.815 | 44.01 (1.02x) | 60L/40S | 10+ alpha #1 |
+| PPO_313 | 7.00 | 0.841 | 34.47 (1.25x) | 39L/61S | high-floor, L/S flip |
+| **PPO_314** | **11.22** | 0.737 | 35.46 (1.08x) | 53L/47S | 10+ alpha #2, balanced |
+| **PPO_315** | **10.77** | **0.861** | 48.99 (1.35x) | 62L/38S | 10+ alpha #3, **NEW v2 EV peak** |
+| PPO_316 | 9.15 | 0.683 | 67.10 (1.49x) | 70L/30S | post-cluster, ep_rew count 883 (sub-train cut?) |
+
+5-window avg **9.78** (range 7.00-11.22), all >= 7, three >= 10.
+
+#### High-alpha club expansion (4 -> 7 members)
+
+| Tier | Members |
+|---|---|
+| 13+ | PPO_268 (13.73), PPO_289 (13.69) |
+| 12+ | PPO_300 (12.02) |
+| 11+ | PPO_263 (11.86), **PPO_314 (11.22)** NEW |
+| 10+ | PPO_248 (10.80), **PPO_312 (10.79)** NEW, **PPO_315 (10.77)** NEW |
+
+Three new 10+ members in single batch = **high-alpha density** can
+amplify, not just repeat across distant regimes. Total 10+ alpha
+windows in v2: **7** (up from 4).
+
+#### EV new peak: PPO_315 0.861
+
+| Window | EV |
+|---|---|
+| PPO_283 | 0.857 |
+| PPO_290 (prior peak) | 0.860 |
+| **PPO_315** | **0.861** (NEW peak) |
+| PPO_299 | 0.856 |
+| PPO_313 | 0.841 |
+| PPO_312 | 0.815 |
+
+PPO_315 unique combination: 10.77 profit + 0.861 EV = first dual-peak
+window in v2 (alpha tier + EV tier). Best balanced candidate observed.
+
+#### value_loss accumulation pattern
+
+| Window | Ratio | Trigger |
+|---|---|---|
+| PPO_312 | 1.02x | 10.79 alpha absorption #1 (mild) |
+| PPO_313 | 1.25x | 7.00 high-floor + residual |
+| PPO_314 | 1.08x | 11.22 alpha absorption #2 |
+| PPO_315 | 1.35x | 10.77 alpha absorption #3 |
+| **PPO_316** | **1.49x** | **cumulative post-cluster spike** |
+
+Three consecutive alpha absorptions accumulating pressure. Same
+pattern as PPO_287-289 trio cluster (each WARN 2.30x/2.66x/3.04x).
+Expected to normalize in 5-8 windows following PPO_268/PPO_289/PPO_300
+recovery template. NOT regression.
+
+#### L/S bias: regime-flipping per window
+
+Cross-window L/S: 60/39/53/62/70 (Long%). Each window flipping bias,
+**NOT specialization collapse**. Latest PPO_316 happens to be 70/30
+Long-biased -- single-window WARN, not pattern.
+
+#### PPO_316 ep_rew_mean_count = 883 anomaly
+
+PPO_316 has ep_rew_mean_count 883 instead of normal 989 (-10.7% iter).
+Likely sub-train switch truncated this window mid-training. `is_complete:
+true` still holds per script logic. Does not invalidate metrics; sample
+size 5179 still adequate.
+
+#### Sub-train progress and acceleration
+
+| Item | PPO_307 | PPO_316 | Delta |
+|---|---|---|---|
+| Sub-train end (est) | 2025-11-29 | 2026-01-31 | +63 days timerange |
+| Windows advanced | -- | +9 | -- |
+| Sub-train advanced | -- | +9 (1:1) | -- |
+| Time elapsed | -- | ~1 day | -- |
+| Rate | 6/day | **~9/day** | **+50% acceleration** |
+
+Rate has accelerated from 6/day -> 9/day. Likely due to shorter ep_len
+in current regime (regime more decisive, less ranging).
+
+#### Updated OOS plan (12 -> 14 candidates)
+
+| Candidate | Profile | Priority |
+|---|---|---|
+| PPO_178 | 4.65 / entropy 23% / Neutral 89% | High (Spec1 baseline) |
+| PPO_211 | 3.43 / 12/2/0 cleanest | High |
+| PPO_219 | 4.36 / entropy 56% / 9/5/0 | Medium |
+| PPO_224 | 7.04 / entropy 66% | Medium |
+| PPO_231 | 9.54 / entropy 67% / healthy Spec1 | High |
+| PPO_248 | 10.80 / 32/68 regime-specific | Medium |
+| PPO_263 | 11.86 / 61/39 balanced | High |
+| **PPO_268** | **13.73 / 63/37 / 12/2/0** | **TOP (max profit)** |
+| PPO_283 | 9.58 / EV 0.857 | Low (superseded) |
+| **PPO_289** | **13.69 / 54/46 balanced / 11/3/0** | **High (verifies PPO_268)** |
+| **PPO_290** | **4.84 / EV 0.860** | **Medium (superseded by PPO_315 as best-EV)** |
+| **PPO_300** | **12.02 / 58/42 / EV 0.730** | **High (3rd 12+ alpha)** |
+| **PPO_314** | **11.22 / 53/47 balanced / EV 0.737** | **High (NEW 11+ alpha, balanced)** |
+| **PPO_315** | **10.77 / 62/38 / EV 0.861** | **TOP (NEW alpha+EV dual peak)** |
+| PPO_final | TBD | Conditional |
+
+PPO_315 supersedes PPO_290 as best-EV candidate while also being a 10+
+alpha window -- effectively the "best balanced" candidate now.
+
+PPO_312 (10.79) intentionally NOT added: profile too similar to PPO_248
+already in plan; no marginal information.
+
+#### Status
+
+**Training in final 1-2 days, possibly today.** ~8 sub-trains remaining
+at ~9/day -> < 1 day. Watch points:
+- PPO_317+ value_loss normalization (1.49x -> < 1x within 5-8 windows)
+- Whether high-alpha density continues or returns to consolidation
+- Sub-train ~2026-01-31 -> 2026-03-25 target (final ~8 sub-trains)
+- PPO_final approach -- OOS backtest scaffold preparation now active
+  (target completion 2026-05-13 to 2026-05-14)
