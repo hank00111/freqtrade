@@ -4079,3 +4079,113 @@ at ~9/day -> < 1 day. Watch points:
 - Sub-train ~2026-01-31 -> 2026-03-25 target (final ~8 sub-trains)
 - PPO_final approach -- OOS backtest scaffold preparation now active
   (target completion 2026-05-13 to 2026-05-14)
+
+### 11.26 PPO_321 Checkpoint (2026-05-13) -- alpha cluster ended, post-cluster consolidation, EV 4-window decline, ~3 sub-trains remaining
+
+#### Headline
+
+PPO_321 in-flight (93/989 iter). Same-day advance from PPO_316: +5
+windows in hours. Sub-train advanced est ~2026-01-31 -> ~2026-03-07.
+**~3 sub-trains remaining; likely completes today or tomorrow at
+PPO_~324.**
+
+Alpha cluster (PPO_312-315 triple 10+) ended. Post-cluster consolidation
+phase: 5-window avg profit **3.99** (range 0.99-7.62), no new 10+ alpha
+in this batch. Profit dropped from prior batch's 9.78 record to 3.99 =
+typical normalization after triple-alpha density.
+
+Health **12 OK / 2 WARN / 0 FAIL** -- recovered to PPO_307 level (from
+PPO_316's 10/4/0). Two metrics returned to OK from WARN:
+- policy_collapse: Neutral 66% -> 59% OK
+- long_short_bias: 70/30 -> 43/57 OK balanced
+
+Two metrics still WARN (alpha-cluster absorption residual):
+- value_loss 1.55x (up from 1.49x; absorption ongoing)
+- invalid_actions 22.4% (up from 18.7%; v2 plateau)
+
+#### Recent profits (PPO_317-321)
+
+| Window | Profit | EV | value_loss_last | L/S | Notes |
+|---|---|---|---|---|---|
+| PPO_317 | 7.62 | 0.807 | 52.02 (1.32x) | 56L/44S | post-cluster start |
+| PPO_318 | 2.10 | 0.662 | 41.66 (1.15x) | 32L/68S | small sample (135 actions), ep_len 12801 stretched |
+| PPO_319 | 5.92 | 0.564 | 39.17 (1.31x) | 59L/41S | EV dropped below 0.6 |
+| **PPO_320** | **3.34** | **0.517** | 51.42 (1.55x) | 43L/57S | **EV near WARN boundary** |
+| PPO_321* | 0.99* | 0.391* | 26.45 | 52L/48S | *incomplete 93/989, not representative |
+
+5-window avg **3.99**. All positive. No 10+ alpha.
+
+#### EV 4-window decline -- watchpoint
+
+| Window | EV |
+|---|---|
+| **PPO_315** (peak) | **0.861** |
+| PPO_316 | 0.683 |
+| PPO_317 | 0.807 |
+| PPO_318 | 0.662 |
+| PPO_319 | 0.564 |
+| **PPO_320** | **0.517** (near WARN boundary 0.5) |
+
+Steady decline ~0.34 from peak. Still > 0.5 = OK, but approaching WARN.
+Compared to PPO_289 alpha-cluster recovery where PPO_290 immediately
+rebounded to 0.860, this recovery is **slower**. Likely because triple
+10+ cluster (PPO_312/314/315) creates deeper absorption than the
+PPO_287-289 double-13+ cluster.
+
+Watch PPO_322-324 for either:
+- Continued decline below 0.5 (escalate to WARN-level concern)
+- Stabilization or rebound (normal absorption pattern)
+
+#### value_loss absorption ongoing
+
+| Window | Ratio | Notes |
+|---|---|---|
+| PPO_316 | 1.49x | post-cluster peak |
+| PPO_317 | 1.32x | tapering |
+| PPO_318 | 1.15x | tapering further |
+| PPO_319 | 1.31x | mild bump |
+| **PPO_320** | **1.55x** | **back up; absorption not yet resolved** |
+
+Not yet entering normalize phase. Compared to PPO_289 cycle (PPO_290
+recovered to 0.72x within 1 window), current cycle's recovery is
+delayed. Same hypothesis as EV: triple-alpha cluster deeper absorption.
+
+#### L/S regime adapt confirmed
+
+Cross-window L/S: 56/32/59/43/52 (Long%). Each window flipping. Latest
+PPO_320 = 43/57 balanced. Post-cluster L/S WARN of PPO_316 (70/30
+Long) confirmed as single-window phenomenon, not specialization.
+
+#### Sub-train progress (final stretch)
+
+| Item | PPO_316 | PPO_320 | Delta |
+|---|---|---|---|
+| Sub-train end (est) | 2026-01-31 | 2026-02-28 | +28 days timerange |
+| Windows advanced | -- | +4 | -- |
+| Sub-train advanced | -- | +4 (1:1) | -- |
+| Time elapsed | -- | same day | -- |
+| Rate | 9/day | ~10/day | sustained acceleration |
+
+PPO_321 in-flight pushes est to ~2026-03-07 -> only **18 days
+timerange remaining** to target 2026-03-25 = **~3 sub-trains** =
+< 1 day at 9-10/day pace.
+
+#### OOS plan unchanged (14 candidates)
+
+PPO_317-321 batch produced no new alpha or EV peaks worth adding.
+Plan stable from PPO_316 cycle: 14 candidates with PPO_315 as TOP
+(10.77 + EV 0.861 dual peak), PPO_268 as max-profit TOP (13.73),
+PPO_289 + PPO_300 + PPO_314 as alpha-cluster verifiers.
+
+PPO_322-324 watch criteria for new candidate:
+- 10+ alpha profit -> add as alpha verifier
+- 0.85+ EV -> add as best-EV alternative
+
+#### Status
+
+**Final stretch.** Watch points:
+- PPO_322-324 -- whether EV stabilizes above 0.5 or breaks below
+- PPO_322-324 -- whether value_loss enters normalize (< 1.0x)
+- Whether last 3 sub-trains produce another 10+ alpha window
+- Training natural completion target: **2026-05-13 to 2026-05-14**
+- OOS backtest scaffold preparation NOW (immediate priority post-completion)
